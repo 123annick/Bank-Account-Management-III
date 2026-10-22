@@ -1,4 +1,5 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,7 +9,9 @@ import models.exceptions.BankException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import services.SimulationReport;
 import services.TransactionManager;
+import services.TransactionSimulator;
 import utils.ConcurrencyUtils;
 
 @ExtendWith(ConsoleTestLogger.class)
@@ -45,6 +48,17 @@ class ConcurrencyTest {
     ConcurrencyUtils.runInParallelThreads(tasks);
     assertEquals(500, savings.getBalance());
     assertEquals(5, manager.getTransactionCount());
+  }
+
+  @Test
+  void simulatorReportsConsistentBalance() throws Exception {
+    Account account = TestData.savingsAccount(6000);
+    List<String> log = java.util.Collections.synchronizedList(new ArrayList<>());
+    SimulationReport report = new TransactionSimulator(manager, log::add).run(account);
+    assertTrue(report.isConsistent());
+    assertEquals(6850, report.finalBalance());
+    assertEquals(13, report.recordedTransactions());
+    assertEquals(13, log.size());
   }
 
   private void depositManyTimes(int times) {

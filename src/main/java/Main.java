@@ -9,6 +9,7 @@ import services.FilePersistenceService;
 import services.RecordMapper;
 import services.StatementGenerator;
 import services.TransactionManager;
+import services.TransactionSimulator;
 import ui.AccountMenu;
 import ui.AccountSelector;
 import ui.BankConsoleApp;
@@ -16,6 +17,7 @@ import ui.ConsoleInput;
 import ui.ConsoleOutput;
 import ui.DataMenu;
 import ui.MenuAction;
+import ui.SimulationMenu;
 import ui.StatementMenu;
 import ui.TransactionMenu;
 
@@ -44,7 +46,9 @@ public class Main {
         new TransactionMenu(input, output, accountSelector, transactionManager),
         new StatementMenu(input, output, accountSelector,
             new StatementGenerator(transactionManager)),
-        dataMenu);
+        dataMenu,
+        new SimulationMenu(output, accountSelector,
+            new TransactionSimulator(transactionManager, output::println)));
     new BankConsoleApp(input, output, menuActions, dataMenu::save).run();
   }
 }
