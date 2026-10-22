@@ -4,14 +4,16 @@ public abstract class Customer {
   private final String customerId;
   private String name;
   private int age;
-  private String contact;
+  private String email;
+  private String phone;
   private String address;
 
   protected Customer(String customerId, CustomerDetails details) {
     this.customerId = customerId;
     this.name = details.name();
     this.age = details.age();
-    this.contact = details.contact();
+    this.email = details.email();
+    this.phone = details.phone();
     this.address = details.address();
   }
 
@@ -61,21 +63,39 @@ public abstract class Customer {
   }
 
   /**
-   * Returns the customer's contact details.
+   * Returns the customer's email address.
    *
-   * @return the contact
+   * @return the email
    */
-  public String getContact() {
-    return contact;
+  public String getEmail() {
+    return email;
   }
 
   /**
-   * Changes the customer's contact details.
+   * Changes the customer's email address.
    *
-   * @param contact the new contact
+   * @param email the new email
    */
-  public void setContact(String contact) {
-    this.contact = contact;
+  public void setEmail(String email) {
+    this.email = email;
+  }
+
+  /**
+   * Returns the customer's phone number.
+   *
+   * @return the phone number
+   */
+  public String getPhone() {
+    return phone;
+  }
+
+  /**
+   * Changes the customer's phone number.
+   *
+   * @param phone the new phone number
+   */
+  public void setPhone(String phone) {
+    this.phone = phone;
   }
 
   /**
@@ -94,6 +114,15 @@ public abstract class Customer {
    */
   public void setAddress(String address) {
     this.address = address;
+  }
+
+  /**
+   * Returns the personal details of this customer as one record.
+   *
+   * @return the customer details
+   */
+  public CustomerDetails getDetails() {
+    return new CustomerDetails(name, age, email, phone, address);
   }
 
   /**

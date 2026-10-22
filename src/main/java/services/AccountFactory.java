@@ -1,5 +1,6 @@
 package services;
 
+import java.util.Collection;
 import models.Account;
 import models.AccountType;
 import models.CheckingAccount;
@@ -9,7 +10,7 @@ import models.CustomerType;
 import models.PremiumCustomer;
 import models.RegularCustomer;
 import models.SavingsAccount;
-import models.exceptions.InvalidAmountException;
+import models.exceptions.BankException;
 import utils.IdGenerator;
 import utils.ValidationUtils;
 
@@ -18,24 +19,57 @@ public class AccountFactory {
   private final IdGenerator customerIds = new IdGenerator("CUS");
 
   /**
-   * Checks the opening rules, then creates the customer and the account with new ids.
+   * Checks the opening rules, then creates the customer and the account with
+   * new ids.
    *
    * @param details the customer's personal details
    * @param customerType regular or premium
    * @param accountType savings or checking
    * @param initialDeposit the opening deposit
    * @return the new account
-   * @throws InvalidAmountException when the deposit breaks an opening rule
+   * @throws BankException when the deposit breaks an opening rule
    */
   public Account createAccount(CustomerDetails details, CustomerType customerType,
-      AccountType accountType, double initialDeposit) throws InvalidAmountException {
+      AccountType accountType, double initialDeposit) throws BankException {
     validateInitialDeposit(customerType, accountType, initialDeposit);
-    Customer customer = createCustomer(details, customerType);
-    return buildAccount(customer, accountType, initialDeposit);
+    Customer customer = createCustomer(customerIds.next(), details, customerType);
+    return buildAccount(accountIds.next(), customer, accountType, initialDeposit);
+  }
+
+  /**
+   * Rebuilds an account that already exists, for example one read from a file, keeping its
+   * ids. New ids created later continue after these ones.
+   *
+   * @param accountNumber the existing account number
+   * @param customerId the existing customer id
+   * @param details the customer's personal details
+   * @param customerType regular or premium
+   * @param accountType savings or checking
+   * @param balance the saved balance
+   * @return the rebuilt account
+   */
+  public Account restoreAccount(String accountNumber, String customerId, CustomerDetails details,
+      CustomerType customerType, AccountType accountType, double balance) {
+    accountIds.skipPast(accountNumber);
+    customerIds.skipPast(customerId);
+    Customer customer = createCustomer(customerId, details, customerType);
+    return buildAccount(accountNumber, customer, accountType, balance);
+  }
+
+  /**
+   * Makes sure new ids continue after every given account, for example after a reload.
+   *
+   * @param accounts the accounts that already exist
+   */
+  public void skipPastExisting(Collection<Account> accounts) {
+    accounts.forEach(account -> {
+      accountIds.skipPast(account.getAccountNumber());
+      customerIds.skipPast(account.getCustomer().getCustomerId());
+    });
   }
 
   private void validateInitialDeposit(CustomerType customerType, AccountType accountType,
-      double initialDeposit) throws InvalidAmountException {
+      double initialDeposit) throws BankException {
     ValidationUtils.validateAmount(initialDeposit);
     ValidationUtils.validateInitialDeposit(initialDeposit,
         customerType.getMinimumOpeningDeposit(), customerType.getDisplayName() + " customers");
@@ -43,19 +77,19 @@ public class AccountFactory {
         accountType.getMinimumOpeningDeposit(), accountType.getDisplayName() + " accounts");
   }
 
-  private Customer createCustomer(CustomerDetails details, CustomerType customerType) {
-    String customerId = customerIds.next();
+  private Customer createCustomer(String customerId, CustomerDetails details,
+      CustomerType customerType) {
     if (customerType == CustomerType.PREMIUM) {
       return new PremiumCustomer(customerId, details);
     }
     return new RegularCustomer(customerId, details);
   }
 
-  private Account buildAccount(Customer customer, AccountType accountType, double deposit) {
-    String accountNumber = accountIds.next();
+  private Account buildAccount(String accountNumber, Customer customer, AccountType accountType,
+      double balance) {
     if (accountType == AccountType.SAVINGS) {
-      return new SavingsAccount(accountNumber, customer, deposit);
+      return new SavingsAccount(accountNumber, customer, balance);
     }
-    return new CheckingAccount(accountNumber, customer, deposit);
+    return new CheckingAccount(accountNumber, customer, balance);
   }
 }

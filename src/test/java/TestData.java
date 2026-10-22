@@ -14,7 +14,7 @@ final class TestData {
   }
 
   static CustomerDetails customerDetails(String name) {
-    return new CustomerDetails(name, 30, "+1-555-0000", "1 Test Street");
+    return new CustomerDetails(name, 30, "test.user@bank.com", "+1-555-0000", "1 Test Street");
   }
 
   static Customer regularCustomer() {
