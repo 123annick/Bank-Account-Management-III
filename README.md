@@ -1,239 +1,214 @@
-# Bank Account Management System II — Week 2
+# Bank Account Management System III — Week 3
 
-A console-based banking application in Java. Week 2 refactors the Week 1 code for clean
-code and the SOLID principles, adds custom exceptions, a JUnit 5 test suite, and a Git
-workflow with feature branches, merges and cherry-picks.
+A console-based banking application in Java. Week 3 builds on Week 2 and adds modern Java
+features: **Java Collections**, **Functional Programming** (lambdas, functional interfaces,
+method references, Streams), **File I/O with NIO**, **Regular Expressions** and
+**Concurrency** with threads and synchronized methods.
 
 **Author:** Annick Ujeneza
-**Week 1 repository:** https://github.com/123annick/Bank-Account-Management
+**Week 2 repository:** https://github.com/123annick/Bank-Account-Management-II
 
 ## Features
 
-- **Manage Accounts** – create savings or checking accounts for regular or premium customers, view all accounts with totals
-- **Perform Transactions** – deposit, withdraw and transfer, each with a confirmation prompt
-- **Generate Account Statements** – transactions sorted newest first, totals and net change with 2-decimal precision
-- **Run Tests** – runs the core transaction checks from the menu and prints a JUnit-style summary
-- **Error handling** – invalid input never crashes the program; clear `❌ Error:` messages and retry prompts
+- **Manage Accounts:** create savings or checking accounts with regex-validated name, email, phone and address; view all accounts
+- **Perform Transactions:** deposit, withdraw and transfer, each with a confirmation prompt
+- **Generate Account Statements:** four views built with Streams: latest first, largest amount first, deposits only, withdrawals only
+- **Save/Load Data:** save to or reload from `data/accounts.txt` and `data/transactions.txt`
+- **Run Concurrent Simulation:** three threads and a parallel stream deposit and withdraw on one account at the same time, then the final balance is checked
+- **Persistence:** data loads automatically on startup and saves automatically on exit
+- **All Week 2 features retained:** custom exceptions, savings minimum balance, checking overdraft, premium fee waiver, transfers, statements
 
-## Account and customer rules
+```
+╔════════════════════════════════════════════╗
+║      BANK ACCOUNT MANAGEMENT SYSTEM        ║
+╚════════════════════════════════════════════╝
 
-| Type | Rules |
-|---|---|
-| Savings | 3.5% annual interest, $500 minimum balance (also the minimum opening deposit) |
-| Checking | $1,000 overdraft limit, $10 monthly fee |
-| Regular customer | Standard services |
-| Premium customer | Monthly fees waived, $10,000 minimum opening deposit |
-
-## Custom exceptions
-
-All custom exceptions extend `BankException`, which extends `Exception` (checked exceptions).
-
-| Exception | Thrown when |
-|---|---|
-| `InvalidAmountException` | Amount is zero, negative, not a number, or below an opening minimum |
-| `InsufficientFundsException` | A savings withdrawal would leave less than $500 |
-| `OverdraftExceededException` | A checking withdrawal would go below -$1,000 |
-| `InvalidAccountException` | Account number not found, or transfer to the same account |
-| `StorageFullException` | The account array (50) or transaction array (200) is full |
-
-Wrong menu input (for example letters) raises `InputMismatchException`, which `ConsoleInput`
-catches and turns into a retry prompt.
+Main Menu:
+-----------
+1. Manage Accounts
+2. Perform Transactions
+3. Generate Account Statements
+4. Save/Load Data
+5. Run Concurrent Simulation
+6. Exit
+```
 
 ## Project structure
 
 ```
-Bank-Account-Management-II/
-├── pom.xml                         Maven build file (Java 17, JUnit 5)
-├── .editorconfig                   Google Java Style indentation for IntelliJ
+Bank-Account-Management-III/
+├── pom.xml
+├── data/
+│   ├── accounts.txt            5 sample accounts
+│   └── transactions.txt        13 sample transactions
+├── docs/
+│   ├── collections-architecture.md
+│   └── git-workflow.md
 ├── src/
 │   ├── main/java/
-│   │   ├── Main.java               Builds all objects and starts the app
-│   │   ├── models/                 Account, SavingsAccount, CheckingAccount, Customer,
-│   │   │   │                       RegularCustomer, PremiumCustomer, Transaction,
-│   │   │   │                       CustomerDetails, AccountType, CustomerType,
-│   │   │   │                       TransactionType, Transactable, InterestBearing
-│   │   │   └── exceptions/         BankException, InvalidAmountException,
-│   │   │                           InsufficientFundsException, OverdraftExceededException,
-│   │   │                           InvalidAccountException, StorageFullException
-│   │   ├── services/               AccountRepository, AccountManager, AccountFactory,
-│   │   │                           TransactionHistory, TransactionManager,
-│   │   │                           StatementGenerator, SampleDataLoader,
-│   │   │                           SelfTestRunner, TestResult
-│   │   ├── utils/                  ValidationUtils, FormatUtils, IdGenerator,
-│   │   │                           TransactionSorter
-│   │   └── ui/                     BankConsoleApp, MenuAction, AccountMenu,
-│   │                               TransactionMenu, StatementMenu, TestMenu,
-│   │                               AccountSelector, ConsoleInput, ConsoleOutput
-│   └── test/java/                  AccountTest, TransactionManagerTest, ExceptionTest,
-│                                   AccountManagerTest, StatementGeneratorTest,
-│                                   TransactionSorterTest, TestData, ConsoleTestLogger
-├── docs/
-│   └── git-workflow.md
+│   │   ├── Main.java
+│   │   ├── models/             Account, SavingsAccount, CheckingAccount, Customer,
+│   │   │   │                   RegularCustomer, PremiumCustomer, Transaction, ...
+│   │   │   └── exceptions/     BankException and 6 custom exceptions
+│   │   ├── services/           AccountManager, TransactionManager, FilePersistenceService,
+│   │   │                       RecordMapper, StatementGenerator, TransactionSimulator, ...
+│   │   ├── utils/              ValidationUtils, ConcurrencyUtils, FunctionalUtils,
+│   │   │                       FormatUtils, IdGenerator
+│   │   └── ui/                 BankConsoleApp, one class per menu, ConsoleInput/Output
+│   └── test/java/              9 JUnit 5 test classes (72 tests)
 └── README.md
 ```
 
-The code uses the Maven standard layout (`src/main/java` and `src/test/java`) so that IntelliJ
-and JUnit 5 work without extra setup. The packages follow the lab structure (`models`,
-`models.exceptions`, `services`, `utils`), plus a `ui` package that keeps console input and
-output out of the models and services.
+The code keeps the Maven standard layout from Week 2 (`src/main/java`, `src/test/java`) so
+IntelliJ downloads JUnit 5 automatically. All lab classes are in the packages the lab names.
 
-## What changed from Week 1
+## 1. Collections
 
-| Week 1 | Week 2 |
-|---|---|
-| `processTransaction(amount, "DEPOSIT")` with text types | `deposit()` / `withdraw()` and a `TransactionType` enum |
-| Methods returned `false` on failure | Methods throw custom exceptions with clear messages |
-| Models printed themselves with `System.out` | Models only hold data and rules; `ui` classes print |
-| `instanceof PremiumCustomer` to waive fees | `customer.hasWaivedFees()` (polymorphism) |
-| Static counters inside constructors | `IdGenerator` objects in `AccountFactory` and `TransactionManager` |
-| `withdraw()` copied in both account classes | One `withdraw()` in `Account`; subclasses only add their rule |
-| `Main` had about 300 lines | `Main` only wires objects; each menu is its own class |
-| Money formatting repeated everywhere | `FormatUtils` (DRY) |
-| No tests | 49 JUnit 5 tests |
+| Data | Collection | Where | Why |
+| --- | --- | --- | --- |
+| Accounts | `HashMap<String, Account>` | `AccountManager` | Lookup by account number takes the same time however many accounts exist (O(1)), instead of the Week 2 linear search (O(n)) |
+| Transactions | `ArrayList<Transaction>` | `TransactionManager` | Keeps the order transactions happened and grows without a fixed limit (the Week 2 array stopped at 200) |
+| Menu options | `List<MenuAction>` | `BankConsoleApp` | `List.of(...)` builds a fixed, read-only list |
 
-## SOLID principles in this project
+Week 2's `StorageFullException` was removed: collections grow as needed.
 
-| Principle | Where |
-|---|---|
-| Single Responsibility | `AccountManager` stores accounts, `TransactionManager` moves money, `StatementGenerator` builds statements, `ConsoleInput` reads, `ConsoleOutput` prints |
-| Open/Closed | New account types extend `Account` and override `validateWithdrawalRules()`; new main menu options implement `MenuAction` without changing `BankConsoleApp` |
-| Liskov Substitution | Any `Account` can be passed to `TransactionManager`; every subclass keeps the same `withdraw()` promise |
-| Interface Segregation | Small interfaces: `Transactable`, `InterestBearing` (only savings), `TransactionHistory` (read-only for statements), `MenuAction` |
-| Dependency Inversion | Menus depend on `AccountRepository`, `StatementGenerator` depends on `TransactionHistory`; `Main` injects the real classes through constructors |
+## 2. Functional programming
+
+| Feature | Example in the code | Where |
+| --- | --- | --- |
+| Lambda | `account -> account.getBalance() > 1000` | `AccountManagerTest`, `AccountRepository.findAccounts` |
+| `Predicate<T>` | `IS_CREDIT`, `IS_EMAIL`, `belongsTo(accountNumber)` | `FunctionalUtils`, `ValidationUtils` |
+| `Comparator<T>` | `BY_DATE_NEWEST_FIRST`, `BY_AMOUNT_LARGEST_FIRST` | `FunctionalUtils` |
+| `Function<T, R>` | the line parser passed to `readRecords` | `FilePersistenceService` |
+| `Consumer<T>` | the simulation log `output::println` | `TransactionSimulator`, `Main` |
+| `BooleanSupplier` | `dataMenu::save` runs on exit | `BankConsoleApp`, `Main` |
+| Custom functional interface | `BankOperation` (a lambda that may throw a bank error) | `services/BankOperation` |
+| Method references | `Account::getBalance`, `mapper::toAccount`, `Optional::stream`, `Thread::start`, `this::printAccountRow` | throughout |
+| Streams: `filter`, `sorted`, `map`, `collect` | statements and account lists | `FunctionalUtils.filterAndSort`, `AccountManager.findAccounts` |
+| Streams: `reduce` | `.map(Transaction::getAmount).reduce(0.0, Double::sum)` | `FunctionalUtils.sumAmounts` |
+| Streams: `mapToDouble().sum()` | total bank balance | `AccountManager.getTotalBalance` |
+
+```java
+transactions.stream()
+    .filter(FunctionalUtils.IS_CREDIT)
+    .sorted(FunctionalUtils.BY_AMOUNT_LARGEST_FIRST)
+    .collect(Collectors.toList());
+```
+
+## 3. File I/O with NIO
+
+- `FilePersistenceService` uses `Path`, `Paths.get("data")`, `Files.lines`, `Files.write` and `Files.createDirectories`.
+- Each line is mapped to an object with a method reference: `lines.map(mapper::toAccount)`. A broken line becomes `Optional.empty()` and is skipped and counted instead of crashing the load.
+- `Files.lines` runs inside try-with-resources so the file is always closed.
+- `IOException` is turned into the custom checked `PersistenceException` with a clear message.
+- If `accounts.txt` is missing or empty, the program creates both files with 5 sample accounts.
+- IDs continue after the highest loaded ID, so new accounts and transactions never repeat one.
+
+File format (one record per line, fields separated by `|`, lines starting with `#` are headers):
+
+```
+ACC001|SAVINGS|Active|6250.00|CUS001|REGULAR|John Smith|40|john.smith@bank.com|+1-555-0001|1 Main St
+TXN001|ACC001|DEPOSIT|1500.00|6750.00|2026-10-15T09:00:00
+```
+
+## 4. Regular expressions
+
+All patterns are in `ValidationUtils`, compiled once as `Pattern` constants and checked with
+`pattern.matcher(text).matches()` inside reusable `Predicate<String>` rules.
+
+| Field | Pattern | Valid | Invalid |
+| --- | --- | --- | --- |
+| Account number | `^ACC\d{3}$` | `ACC001` | `ACC99`, `ACC1234` |
+| Email | `^[A-Za-z0-9+_.-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$` | `john.smith@bank.com` | `john.smith@bank` |
+| Phone | `^\+?[0-9][0-9 -]{5,13}[0-9]$` | `+1-555-0001` | `0788` |
+| Name | `^[A-Za-z][A-Za-z .'-]{1,49}$` | `Mary-Jane O'Neil` | `J`, `John\|Smith` |
+| Address | `^[A-Za-z0-9][A-Za-z0-9 ,.'#/-]{2,79}$` | `1 Main St` | `\|` characters |
+
+The lab's email pattern `^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$` accepts `john.smith@bank`, but the
+lab's own example expects that address to be rejected. The pattern above keeps the same
+characters and also requires a domain ending such as `.com`.
+
+`ConsoleInput.readValidated(prompt, rule, message)` repeats the question until the answer
+passes the rule. `AccountFactory` checks the same rules again, so invalid data can never reach
+the files.
+
+## 5. Concurrency
+
+- `Account.deposit`, `withdraw`, `checkWithdrawal`, `getBalance` and `updateBalance` are `synchronized`, so the check and the balance change happen as one step per account.
+- `TransactionManager.deposit`, `withdraw`, `transfer` and its list readers are `synchronized`, so the balance change and its record are added together and the `ArrayList` is never changed by two threads at once.
+- `ConcurrencyUtils.runInParallelThreads` starts one `Thread` per `Runnable` (named Thread-1, Thread-2, ...) and waits with `join()`.
+- `TransactionSimulator` runs 2 deposits and 1 withdrawal on three threads, then 10 deposits on a parallel stream (`IntStream.rangeClosed(1, 10).parallel()`), and checks that the final balance equals the starting balance plus every recorded transaction.
+
+```
+Running concurrent transaction simulation...
+
+Thread-1: Depositing $500.00 to ACC001
+Thread-3: Withdrawing $200.00 from ACC001
+Thread-2: Depositing $300.00 to ACC001
+...
+✓ Thread-safe operations completed successfully.
+Final Balance for ACC001: $6,850.00
+```
 
 ## Setup in IntelliJ IDEA
 
-**Requirements:** IntelliJ IDEA (Community or Ultimate) and JDK 17 or newer.
-
-1. Clone the repository: **File > New > Project from Version Control**, paste the GitHub URL.
-2. IntelliJ detects `pom.xml` and imports it as a Maven project. If asked, click **Load Maven Project**.
-3. Wait for Maven to download JUnit 5 (bottom status bar).
-4. Check **File > Project Structure > Project SDK** is JDK 17 or newer.
-5. Code style: IntelliJ reads `.editorconfig` automatically, so **Code > Reformat Code** keeps the Google Java Style 2-space indentation.
-
-## Running the application
-
-Open `src/main/java/Main.java` and click the green **Run** arrow next to `main`.
-
-The app starts with the five Week 1 sample accounts (ACC001 – ACC005), so new accounts start at
-ACC006. To start empty, edit the run configuration (**Run > Edit Configurations > Program
-arguments**) and type `--empty`.
+1. **File > New > Project from Version Control**, paste the repository URL.
+2. Click **Load Maven Project** when asked and wait for JUnit 5 to download.
+3. Make sure **File > Project Structure > SDK** is JDK 17 or newer.
+4. Run `src/main/java/Main.java`. The working directory must be the project folder so the program finds `data/`; this is IntelliJ's default.
 
 ## Running the tests
 
-- **All tests:** right-click `src/test/java` > **Run 'All Tests'**.
-- **One class:** open `AccountTest`, `TransactionManagerTest` or `ExceptionTest` and click the green arrow next to the class name.
-- **From the menu:** run the app and choose **4. Run Tests** for the quick in-app summary.
-- **Maven (optional):** if Maven is installed, `mvn test` runs the same suite.
-
-`@BeforeEach` creates fresh accounts before every test, so tests never affect each other.
-`ConsoleTestLogger` (a JUnit `TestWatcher` extension) prints each result to the console.
-
-## Test results
-
-49 tests in 6 classes, all passing:
+Right-click `src/test/java` > **Run 'All Tests'**. 72 tests in 9 classes, all passing:
 
 | Test class | Tests | Covers |
-|---|---|---|
+| --- | --- | --- |
 | `AccountTest` | 14 | deposit, withdraw, minimum balance, overdraft, fees, interest, rounding |
-| `TransactionManagerTest` | 12 | deposit, withdraw, transfer, transaction records, IDs, full log |
-| `ExceptionTest` | 10 | every custom exception and its message |
-| `AccountManagerTest` | 5 | linear search, totals, insertion order, ID generation |
-| `StatementGeneratorTest` | 4 | empty statements, newest first, totals, 2-decimal format |
-| `TransactionSorterTest` | 4 | insertion sort order, ties, original array untouched |
+| `TransactionManagerTest` | 12 | transactions with `ArrayList`, transfer, IDs continue after loaded data |
+| `ExceptionTest` | 11 | every custom exception and its message |
+| `RegexValidationTest` | 8 | account number, email, phone and name patterns |
+| `FunctionalUtilsTest` | 7 | sorting 10 transactions by amount and date, `reduce` totals, filters |
+| `AccountManagerTest` | 6 | `HashMap` lookup, sorting, predicates, `replaceAll` |
+| `FilePersistenceServiceTest` | 5 | save/load round trip, missing files, damaged lines, ID continuation |
+| `StatementGeneratorTest` | 5 | empty history, newest first, totals, deposits-only view |
+| `ConcurrencyTest` | 4 | 20 threads, parallel stream, concurrent withdrawals, the simulator |
 
-Console output from `ConsoleTestLogger` (shortened):
+## Test scenarios from the lab
 
-```
-Test: depositUpdatesBalance() .......... PASSED
-Test: withdrawBelowMinimumThrowsException() .......... PASSED
-Test: overdraftWithinLimitAllowed() .......... PASSED
-Test: overdraftExceedThrowsException() .......... PASSED
-...
-✓ All 14 tests passed successfully in AccountTest!
+| Scenario | How to check |
+| --- | --- |
+| 1. Collections and Streams | Use menus 1–3; see `AccountManager` and `TransactionManager` |
+| 2. Round trip | Create 2 accounts and 3 transactions, choose 4 > 1 (save), exit, run again, open a statement |
+| 3. Regex | Create an account and type `john.smith@bank`, then `john.smith@bank.com` |
+| 4. Concurrent deposits | Menu 5 with `ACC001` |
+| 5. Stream sorting | Menu 3, view 2 (by amount) or 1 (by date); `FunctionalUtilsTest` sorts 10 transactions |
+| 6. File errors | Delete `data/accounts.txt` and run: it is recreated with sample accounts |
+| 7. Threads and persistence | Menu 5, exit (auto-save), run again, open the statement |
+| 8. `reduce()` | Statement totals; `FunctionalUtilsTest.reduceAddsUpDepositsCorrectly` |
+| 9. Code style | 2-space Google style, JavaDoc on public methods, methods of 25 lines or fewer |
 
-Test: transferUpdatesBothAccounts() .......... PASSED
-Test: transferWithInsufficientFundsChangesNothing() .......... PASSED
-...
-✓ All 12 tests passed successfully in TransactionManagerTest!
-```
+## Changes from Week 2
 
-In-app **Run Tests** output:
+| Week 2 | Week 3 |
+| --- | --- |
+| `Account[50]` with linear search | `HashMap<String, Account>` |
+| `Transaction[200]` | `ArrayList<Transaction>` |
+| Insertion sort in `TransactionSorter` | `Comparator` + `stream().sorted()` in `FunctionalUtils` |
+| Loops to add totals | `reduce` and `mapToDouble().sum()` |
+| Data lost on exit | Saved to `data/*.txt` and loaded on startup |
+| Only empty-text checks | Regex validation for every customer field and account number |
+| Single thread | Synchronized methods, threads and parallel streams |
+| Menu option "Run Tests" | Replaced by "Save/Load Data" and "Run Concurrent Simulation" as the Week 3 menu shows; the JUnit suite runs in IntelliJ |
 
-```
-Running core transaction tests...
+## Git
 
-Test: depositUpdatesBalance() .......... PASSED
-Test: negativeDepositThrowsException() .......... PASSED
-Test: withdrawBelowMinimumThrowsException() .......... PASSED
-Test: overdraftWithinLimitAllowed() .......... PASSED
-Test: overdraftExceedThrowsException() .......... PASSED
-Test: transferUpdatesBothAccounts() .......... PASSED
+The history continues from Week 2 and follows GitFlow: each phase was built on a
+`feature/*` branch created from `develop` and merged back into `develop`, in the lab's
+order: collections → functional → I/O → regex → threads. See
+[`docs/git-workflow.md`](docs/git-workflow.md).
 
-✓ All 6 tests passed successfully!
-```
+## Ready for Week 4
 
-## Data structures and algorithms
-
-- Accounts and transactions are stored in fixed-size arrays (50 and 200) with a counter.
-- `AccountManager.findAccount()` uses **linear search**, O(n).
-- `TransactionSorter` uses **insertion sort** to order transactions newest first, O(n²) worst case, O(n) when the array is already nearly sorted (which it is, because transactions are recorded in time order).
-- `getAllAccounts()` and `getTransactionsFor()` return copies, so callers cannot change the stored arrays.
-
-## Git workflow
-
-Full details, with every command and commit hash, are in [`docs/git-workflow.md`](docs/git-workflow.md).
-
-### Branches
-
-| Branch | Purpose |
-|---|---|
-| `main` | Stable code; receives merges |
-| `feature/refactor` | Maven layout, refactored models and services, insertion sort |
-| `feature/exceptions` | Custom exceptions, validation and the console UI |
-| `feature/testing` | JUnit 5 tests, rounding fix, Run Tests menu option |
-| `feature/error-handling` | NaN/infinity validation fix and cherry-picked rounding fix |
-
-### Commands used
-
-```bash
-git checkout -b feature/refactor
-git add .
-git commit -m "Refactored AccountManager and TransactionManager"
-
-git checkout -b feature/exceptions
-git commit -m "Add custom exception hierarchy and ValidationUtils"
-git checkout main
-git merge --no-ff feature/exceptions
-
-git checkout -b feature/testing
-git add src/test/java
-git commit -m "Add JUnit 5 tests for deposit, withdraw and transfer"
-git cherry-pick -x c47c6b0
-
-git checkout -b feature/error-handling main
-git cherry-pick -x 9da543f
-
-git checkout main
-git merge --no-ff feature/testing
-git merge --no-ff feature/error-handling
-git push -u origin --all
-```
-
-### Pushing this repository to GitHub
-
-1. On GitHub create a new **empty public** repository named `Bank-Account-Management-II` (no README, no .gitignore).
-2. In IntelliJ open **View > Tool Windows > Terminal** in the project folder and run:
-
-```bash
-git remote add origin https://github.com/123annick/Bank-Account-Management-II.git
-git push -u origin --all
-```
-
-3. On GitHub, check that all five branches and the commit history appear.
-
-## Ready for Week 3
-
-- `AccountRepository` is an interface, so a file-based or Collections-based repository can replace the array version without changing the menus.
-- `TransactionHistory` lets the statement code read transactions from any future storage.
-- Arrays are hidden inside `AccountManager` and `TransactionManager`, so switching to `ArrayList` or `HashMap` changes only those classes.
+`AccountRepository` and `TransactionHistory` are interfaces, and all file code is in
+`FilePersistenceService`. A database version can replace the file service without changing
+the menus or the models.

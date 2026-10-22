@@ -1,9 +1,76 @@
-# Git Workflow — Bank Account Management System (Week 2)
+# Git Workflow — Bank Account Management System
+
+## Week 3 workflow: GitFlow
+
+Week 3 follows **GitFlow**, a branching model with two long-lived branches and three kinds of
+short-lived branches.
+
+| Branch | Lives | Created from | Merged into | Purpose |
+| --- | --- | --- | --- | --- |
+| `main` | Forever | — | — | Only released, tested versions. Each release is tagged (`v3.0.0`) |
+| `develop` | Forever | `main` | `release/*` | Where finished features come together before a release |
+| `feature/*` | Until merged | `develop` | `develop` | One new feature or phase |
+| `release/*` | Until released | `develop` | `main` and back into `develop` | Final checks and version number for a release |
+| `hotfix/*` | Until merged | `main` | `main` and `develop` | Urgent fix to a released version |
+
+```
+main     ●──────────────────────────────────────────────●  v3.0.0
+          \                                            /
+develop    ●────●────●────●────●────●────●────────────●
+                 \  / \  / \  / \  / \  / \          /
+feature/*         ●●   ●●   ●●   ●    ●●   ●●●●●●●  (release/v3.0.0)
+```
+
+**Why GitFlow instead of committing to `main`:** `main` always holds a version that was
+released and tested, so a reviewer or user can trust it. Work in progress lives on
+`develop` and feature branches, and nothing reaches `main` without a release step.
+
+### How Week 3 was built
+
+The repository starts from the full Week 2 history. `develop` was created from `main`, and
+each phase was built on a feature branch and merged into `develop` with `--no-ff`, in the
+lab's order: collections → functional → I/O → regex → threads.
+
+```bash
+git checkout main
+git checkout -b develop
+
+git checkout -b feature/collections develop
+git add src
+git commit -m "Replace arrays with HashMap and ArrayList in AccountManager and TransactionManager"
+git checkout develop
+git merge --no-ff feature/collections
+```
+
+| Phase | Branch | Commit | Message |
+| --- | --- | --- | --- |
+| 1. Collections | `feature/collections` | `0acdb39` | Replace arrays with HashMap and ArrayList in AccountManager and TransactionManager |
+|  | `develop` | `e984e16` | Merge branch 'feature/collections' into develop |
+| 2. Functional | `feature/functional` | `4a9d2e9` | Add FunctionalUtils with comparators, predicates and reduce |
+|  | `feature/functional` | `630391c` | Sort and filter statements with Streams and Lambdas |
+|  | `develop` | `cdfc45d` | Merge branch 'feature/functional' into develop |
+| 3. File I/O | `feature/file-io` | `0573576` | Add FilePersistenceService using NIO Files, Paths and Files.lines |
+|  | `feature/file-io` | `dbf650d` | Add Save/Load menu with auto-load on startup and auto-save on exit |
+|  | `develop` | `52afa76` | Merge branch 'feature/file-io' into develop |
+| 4. Regex | `feature/regex` | `edf81f0` | Add regex validation with Pattern, Matcher and Predicate in ValidationUtils |
+|  | `develop` | `253cded` | Merge branch 'feature/regex' into develop |
+| 5. Concurrency | `feature/concurrency` | `ce489b1` | Make balance updates thread-safe with synchronized methods |
+|  | `feature/concurrency` | `1d7d910` | Add concurrent simulation with Threads, Runnable and parallel streams |
+|  | `develop` | `460d971` | Merge branch 'feature/concurrency' into develop |
+| Docs | `feature/documentation` | (see `git log`) | Document Collections, Streams, File I/O, Regex and Concurrency |
+|  | `develop` | (see `git log`) | Merge branch 'feature/documentation' into develop |
+
+`--no-ff` always records a merge commit, so the history shows exactly where each feature
+joined `develop`.
+
+---
+
+## Week 2 workflow
 
 This document records how Git was used during the lab: which branches were created, what each
 commit contains, where merges and cherry-picks happened, and how to repeat the workflow.
 
-## 1. Starting point
+### 1. Starting point
 
 The Week 2 repository starts from the Week 1 history, so the Week 1 commit is kept:
 
@@ -17,7 +84,7 @@ git remote remove origin
 |---|---|
 | `2627b4a` | Bank Account Management System with README (Week 1) |
 
-## 2. Branch strategy
+### 2. Branch strategy
 
 | Branch | Created from | Purpose |
 |---|---|---|
@@ -31,7 +98,7 @@ git remote remove origin
 refactored classes. Merging `feature/exceptions` into `main` therefore delivered both phases at
 once, and `main` never contained code that did not compile.
 
-## 3. Phase 1 — Refactoring (`feature/refactor`)
+### 3. Phase 1 — Refactoring (`feature/refactor`)
 
 ```bash
 git checkout -b feature/refactor
@@ -56,7 +123,7 @@ git commit -m "Refactored AccountManager and TransactionManager"
 `git mv` was used so Git records the files as moved, not deleted and re-added, and the Week 1
 history of each file is kept.
 
-## 4. Phase 2 — Exception handling (`feature/exceptions`)
+### 4. Phase 2 — Exception handling (`feature/exceptions`)
 
 ```bash
 git checkout -b feature/exceptions
@@ -78,7 +145,7 @@ git merge --no-ff feature/exceptions
 `--no-ff` (no fast-forward) always creates a merge commit, so the history shows clearly that a
 feature branch was joined into `main`.
 
-## 5. More refactoring on `feature/refactor`
+### 5. More refactoring on `feature/refactor`
 
 While `feature/exceptions` was being merged, one more refactoring commit was made on
 `feature/refactor`: the statement now uses an insertion sort instead of a backwards loop.
@@ -93,7 +160,7 @@ git commit -m "Sort statement transactions newest first using insertion sort"
 |---|---|
 | `c47c6b0` | Sort statement transactions newest first using insertion sort |
 
-## 6. Phase 3 — Testing (`feature/testing`) and the first cherry-pick
+### 6. Phase 3 — Testing (`feature/testing`) and the first cherry-pick
 
 ```bash
 git checkout main
@@ -131,7 +198,7 @@ git commit -m "Add Run Tests menu option with JUnit-style console summary"
 | `ab5cde5` | Add test for rounding balances to cents |
 | `abc983c` | Add Run Tests menu option with JUnit-style console summary |
 
-## 7. Error handling branch and cherry-picks in both directions
+### 7. Error handling branch and cherry-picks in both directions
 
 ```bash
 git checkout main
@@ -157,7 +224,7 @@ git commit -am "Add test for NaN and infinite amounts"
 - The validation fix (`a069248`) was cherry-picked **into** `feature/testing`, so a test could be
   written for it.
 
-## 8. Final merges into `main`
+### 8. Final merges into `main`
 
 ```bash
 git checkout main
@@ -173,7 +240,7 @@ git merge --no-ff feature/error-handling
 Both branches contained the same two cherry-picked changes. Because the changes were identical,
 Git merged them automatically with no conflict.
 
-## 9. Commit graph
+### 9. Commit graph
 
 ```
 *   128790a Merge branch 'feature/error-handling' into main
@@ -209,7 +276,7 @@ Git merged them automatically with no conflict.
 See it yourself with `git log --graph --oneline --all`, or in IntelliJ with
 **View > Tool Windows > Git > Log**.
 
-## 10. Resolving a cherry-pick or merge conflict
+### 10. Resolving a cherry-pick or merge conflict
 
 If Git stops with `CONFLICT`:
 
@@ -226,7 +293,7 @@ git cherry-pick --continue
 
 To give up instead: `git cherry-pick --abort` (or `git merge --abort` for a merge).
 
-## 11. Pushing to GitHub
+### 11. Pushing to GitHub
 
 ```bash
 git remote add origin https://github.com/123annick/Bank-Account-Management-II.git
@@ -237,7 +304,7 @@ git log --oneline origin/main
 `--all` pushes every branch, so `feature/refactor`, `feature/exceptions`, `feature/testing` and
 `feature/error-handling` are visible on GitHub next to `main`.
 
-## 12. Commit message rules followed
+### 12. Commit message rules followed
 
 - Start with a verb in the imperative mood: *Add*, *Fix*, *Refactor*, *Move*, *Sort*.
 - Keep the subject line short and specific: say **what** changed, not *"update files"*.
