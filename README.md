@@ -55,7 +55,7 @@ Bank-Account-Management-III/
 │   │   ├── utils/              ValidationUtils, ConcurrencyUtils, FunctionalUtils,
 │   │   │                       FormatUtils, IdGenerator
 │   │   └── ui/                 BankConsoleApp, one class per menu, ConsoleInput/Output
-│   └── test/java/              9 JUnit 5 test classes (72 tests)
+│   └── test/java/              11 JUnit 5 test classes (97 tests)
 └── README.md
 ```
 
@@ -111,26 +111,82 @@ ACC001|SAVINGS|Active|6250.00|CUS001|REGULAR|John Smith|40|john.smith@bank.com|+
 TXN001|ACC001|DEPOSIT|1500.00|6750.00|2026-10-15T09:00:00
 ```
 
-## 4. Regular expressions
+## 4. Regular expressions and input validation
 
-All patterns are in `ValidationUtils`, compiled once as `Pattern` constants and checked with
-`pattern.matcher(text).matches()` inside reusable `Predicate<String>` rules.
+Every value typed by the user, and every line read from a data file, is checked before it is
+used. All patterns are in `ValidationUtils`, compiled once as `Pattern` constants and checked
+with `pattern.matcher(text).matches()` inside reusable `Predicate<String>` rules.
 
-| Field | Pattern | Valid | Invalid |
+| Input | Rule | Accepted | Rejected |
 | --- | --- | --- | --- |
-| Account number | `^ACC\d{3}$` | `ACC001` | `ACC99`, `ACC1234` |
-| Email | `^[A-Za-z0-9+_.-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$` | `john.smith@bank.com` | `john.smith@bank` |
-| Phone | `^\+?[0-9][0-9 -]{5,13}[0-9]$` | `+1-555-0001` | `0788` |
-| Name | `^[A-Za-z][A-Za-z .'-]{1,49}$` | `Mary-Jane O'Neil` | `J`, `John\|Smith` |
-| Address | `^[A-Za-z0-9][A-Za-z0-9 ,.'#/-]{2,79}$` | `1 Main St` | `\|` characters |
+| Account number | `^ACC\d{3}$` (lower case is converted first) | `ACC001`, `acc001` | `ACC99`, `ACC1234`, `abc` |
+| Customer name | `^(?=.{2,50}$)[A-Za-z]+(?:[ '-][A-Za-z]+)*$`: letters only, words joined by one space, hyphen or apostrophe | `Ann Uwase`, `Mary-Jane O'Neil` | `12345`, `John3`, `Ann  Lee`, `-Ann`, `Ann_Lee` |
+| Age | whole number from 18 to 120 | `30` | `abc`, `1.5`, `15`, `200` |
+| Email | `^(?=.{6,100}$)(?!.*\.\.)[A-Za-z0-9+_.-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$` | `john.smith@bank.com` | `john.smith@bank`, `ann@bank..com` |
+| Phone | `^\+?(?:[0-9][ -]?){6,14}[0-9]$`: 7 to 15 digits, single spaces or dashes | `+1-555-0001`, `+250 788 123 456` | `0788`, `phone123`, `+1--555` |
+| Address | `^(?=.{3,80}$)(?=.*[A-Za-z])[A-Za-z0-9][A-Za-z0-9 ,.'#/-]*$`: needs a letter | `12 Main St` | `12345`, anything with `\|` |
+| Money (typed) | `^-?\$?(?:\d{1,3}(?:,\d{3})+\|\d+)(?:\.\d{1,2})?$` | `1500`, `1,500.50`, `$20.5` | `abc`, `1e3`, `10.555`, `1,50` |
+| Money (value) | greater than 0, at most $1,000,000.00, at most 2 decimals | `0.01`, `1000000` | `0`, `-200`, `1000000.01` |
+| Menu choices | whole number in the menu's range | `1`–`6` | `abc`, `7`, `1.5` |
+| Yes/No | `Y`, `YES`, `N`, `NO` in any case | `y`, `Yes` | `maybe` |
+| Any text | must not be blank | | empty or spaces only |
+
+**How it works:**
+
+- `ConsoleInput.readValidated(prompt, rule, message)` repeats the question until the answer
+  passes the rule, so the program never crashes and the user always sees why.
+- `ConsoleInput.readAmount` checks the money format first; `ValidationUtils.validateAmount`
+  then checks the value (so `-200` still shows "Amount must be greater than 0").
+- `AccountFactory` checks name, email, phone, address and age **again** and throws
+  `InvalidInputException`, so invalid data can't reach the bank from any path.
+- `RecordMapper` applies the same rules to every line in the data files; a line that breaks
+  any rule is skipped and reported, not loaded.
+- `AccountFactory` refuses a 1,000th account because `ACC1000` would break the `ACC\d{3}`
+  pattern.
+- Closing the input (Ctrl+D) is caught in `BankConsoleApp`, which saves and exits safely.
 
 The lab's email pattern `^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$` accepts `john.smith@bank`, but the
 lab's own example expects that address to be rejected. The pattern above keeps the same
 characters and also requires a domain ending such as `.com`.
 
-`ConsoleInput.readValidated(prompt, rule, message)` repeats the question until the answer
-passes the rule. `AccountFactory` checks the same rules again, so invalid data can never reach
-the files.
+## Errors and exceptions
+
+Everything that can be thrown in Java is a `Throwable`. It has two branches:
+
+```
+Throwable
+├── Error                      serious JVM problems, never caught by this program
+│   ├── OutOfMemoryError
+│   └── StackOverflowError
+└── Exception                  CHECKED: the compiler forces catch or throws
+    ├── IOException            Java  → caught in FilePersistenceService
+    ├── InterruptedException   Java  → caught in SimulationMenu
+    ├── BankException          mine  → caught in every menu
+    │   ├── InvalidAmountException
+    │   ├── InsufficientFundsException
+    │   ├── OverdraftExceededException
+    │   ├── InvalidAccountException
+    │   ├── InvalidInputException
+    │   └── PersistenceException
+    └── RuntimeException       UNCHECKED: the compiler does not force handling
+        ├── NumberFormatException     Integer.parseInt("abc") → ConsoleInput
+        ├── InputMismatchException    wrong menu input → ConsoleInput
+        ├── NoSuchElementException    input closed (Ctrl+D) → BankConsoleApp
+        ├── IllegalArgumentException  bad enum or number in a data file → RecordMapper
+        └── DateTimeParseException    bad date in a data file → RecordMapper
+```
+
+| | Error | Checked exception | Unchecked exception |
+| --- | --- | --- | --- |
+| Extends | `Error` | `Exception` (not `RuntimeException`) | `RuntimeException` |
+| Meaning | The JVM itself is in trouble | An expected problem the program should recover from | Usually a programming mistake or invalid data |
+| Compiler | Nothing forced | Must `catch` or declare `throws` | Nothing forced |
+| Should you catch it? | No: the program can't fix it | Yes, where you can tell the user | Only where you expect it, such as parsing input |
+| In this project | Not caught on purpose | `BankException` family, `IOException`, `InterruptedException` | `NumberFormatException`, `InputMismatchException`, `NoSuchElementException`, `IllegalArgumentException` |
+
+My bank exceptions are **checked** because a failed withdrawal or a bad email is an expected
+event, not a bug, and the compiler should force every caller to handle it.
+`ExceptionTest.javaExceptionTypesMatchHowTheCodeHandlesThem` checks this hierarchy.
 
 ## 5. Concurrency
 
@@ -159,17 +215,19 @@ Final Balance for ACC001: $6,850.00
 
 ## Running the tests
 
-Right-click `src/test/java` > **Run 'All Tests'**. 72 tests in 9 classes, all passing:
+Right-click `src/test/java` > **Run 'All Tests'**. 97 tests in 11 classes, all passing:
 
 | Test class | Tests | Covers |
 | --- | --- | --- |
+| `RegexValidationTest` | 15 | every regex: valid and invalid account numbers, names, emails, phones, addresses, money |
 | `AccountTest` | 14 | deposit, withdraw, minimum balance, overdraft, fees, interest, rounding |
+| `ExceptionTest` | 12 | every custom exception, its message, and checked vs unchecked types |
 | `TransactionManagerTest` | 12 | transactions with `ArrayList`, transfer, IDs continue after loaded data |
-| `ExceptionTest` | 11 | every custom exception and its message |
-| `RegexValidationTest` | 8 | account number, email, phone and name patterns |
+| `ValidationRulesTest` | 8 | amount limit and decimals, age range, names with numbers, 999-account limit |
+| `ConsoleInputTest` | 7 | the console asks again after bad names, amounts, numbers, blank text; safe exit |
+| `FilePersistenceServiceTest` | 7 | round trip, missing files, damaged and invalid records, ID continuation |
 | `FunctionalUtilsTest` | 7 | sorting 10 transactions by amount and date, `reduce` totals, filters |
 | `AccountManagerTest` | 6 | `HashMap` lookup, sorting, predicates, `replaceAll` |
-| `FilePersistenceServiceTest` | 5 | save/load round trip, missing files, damaged lines, ID continuation |
 | `StatementGeneratorTest` | 5 | empty history, newest first, totals, deposits-only view |
 | `ConcurrencyTest` | 4 | 20 threads, parallel stream, concurrent withdrawals, the simulator |
 
@@ -200,12 +258,38 @@ Right-click `src/test/java` > **Run 'All Tests'**. 72 tests in 9 classes, all pa
 | Single thread | Synchronized methods, threads and parallel streams |
 | Menu option "Run Tests" | Replaced by "Save/Load Data" and "Run Concurrent Simulation" as the Week 3 menu shows; the JUnit suite runs in IntelliJ |
 
-## Git
+## Git: GitFlow with pull requests
 
-The history continues from Week 2 and follows GitFlow: each phase was built on a
-`feature/*` branch created from `develop` and merged back into `develop`, in the lab's
-order: collections → functional → I/O → regex → threads. See
-[`docs/git-workflow.md`](docs/git-workflow.md).
+The repository follows **GitFlow**:
+
+| Branch | Purpose |
+| --- | --- |
+| `main` | Released versions only. Week 2 is the last release until `v3.0.0` |
+| `develop` | Integration branch: every finished feature is merged here first |
+| `feature/*` | One branch per Week 3 phase, created from `develop` and merged back into it |
+| `release/v3.0.0` | Created from `develop` to prepare the release, then merged into `main` and tagged |
+| `hotfix/*` | Urgent fixes made from `main` (none needed yet) |
+
+The five phase branches (collections → functional → I/O → regex → threads) are merged into
+`develop`. The input-validation improvements are on `feature/input-validation`, ready to be
+merged into `develop` through a **pull request** on GitHub, followed by a release pull request
+into `main`. Every step and command is in [`docs/git-workflow.md`](docs/git-workflow.md).
+
+## What is and isn't implemented
+
+| Implemented | Not implemented (known limits) |
+| --- | --- |
+| Create accounts (savings, checking; regular, premium) | Closing or deleting an account |
+| Deposit, withdraw, transfer with confirmation | Editing customer details after creation |
+| Statements with 4 stream-based views | Interest is calculated but never added to the balance automatically |
+| Save, reload, auto-load, auto-save | Monthly fee exists (`applyMonthlyFee`) but no menu applies it |
+| Regex validation of every input and file record | A customer can't own several accounts; each account has its own customer |
+| Thread-safe transactions and a concurrency simulation | Money uses `double` rounded to cents, not `BigDecimal` |
+| 97 JUnit tests | No database: data is in text files (planned for a later week) |
+| GitFlow branches | Pull requests must be opened by you on GitHub (steps in `docs/git-workflow.md`) |
+| Up to 999 accounts (`ACC001`–`ACC999`, the lab's pattern) | More than 999 accounts |
+
+For a quick "where is what" list, see [`docs/code-map.md`](docs/code-map.md).
 
 ## Ready for Week 4
 

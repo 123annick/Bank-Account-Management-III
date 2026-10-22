@@ -63,6 +63,112 @@ git merge --no-ff feature/collections
 `--no-ff` always records a merge commit, so the history shows exactly where each feature
 joined `develop`.
 
+## Pull requests: finishing Week 3 on GitHub
+
+A **pull request (PR)** is a request on GitHub to merge one branch into another. It shows
+the changes, lets a reviewer comment line by line, and records the review. In a team,
+nothing is merged into `develop` or `main` without a PR.
+
+The input-validation work (based on my Week 2 review) is on `feature/input-validation` and
+is **not merged yet**. It goes through two pull requests:
+
+```
+feature/input-validation ──PR #1──▶ develop ──▶ release/v3.0.0 ──PR #2──▶ main (tag v3.0.0)
+                                                         └──────────────▶ develop (back-merge)
+```
+
+### Step 1 — Push everything
+
+```bash
+git remote add origin https://github.com/123annick/Bank-Account-Management-III.git
+git push -u origin --all
+```
+
+On GitHub, open **Settings → General → Default branch** and set it to `develop`, so new pull
+requests target it by default.
+
+### Step 2 — Pull request #1: `feature/input-validation` → `develop`
+
+1. On GitHub, open **Pull requests → New pull request**.
+2. Set **base: `develop`** and **compare: `feature/input-validation`**.
+3. Title: `Strengthen input validation`
+4. Description:
+
+```
+## What
+- Names accept letters only (no numbers or symbols); phone needs 7-15 digits;
+  address needs a letter; email rejects double dots
+- Money input: format check (no letters, 1e3 or 3 decimals), $1,000,000 limit
+- Age 18-120 checked again in AccountFactory; 999-account limit
+- Every line in the data files is validated when loading
+- Closing the input (Ctrl+D) saves and exits safely; Y/YES/N/NO accepted
+- Docs: validation rules, errors vs exceptions, GitFlow, code map
+
+## Why
+Week 2 review: improve input validation and explain checked vs unchecked exceptions.
+A name such as "12345" used to be accepted.
+
+## How to test
+- Run all tests: 97 passing
+- Create an account with name 12345 -> error, then Ann Uwase -> accepted
+```
+
+5. Click **Create pull request**, open the **Files changed** tab and read through the changes
+   (this is the code review).
+6. Click **Merge pull request** → **Confirm merge**. Keep the branch or delete it.
+
+### Step 3 — Release branch
+
+```bash
+git checkout develop
+git pull
+git checkout -b release/v3.0.0
+```
+
+Open `pom.xml`, change `<version>2.0.0</version>` to `<version>3.0.0</version>`, run all
+tests, then:
+
+```bash
+git add pom.xml
+git commit -m "Prepare release v3.0.0"
+git push -u origin release/v3.0.0
+```
+
+### Step 4 — Pull request #2: `release/v3.0.0` → `main`
+
+1. **New pull request** with **base: `main`** and **compare: `release/v3.0.0`**.
+2. Title: `Release v3.0.0 — Week 3`
+3. Description: `Collections, Streams, File I/O, Regex, Concurrency and input validation. 97 tests passing.`
+4. **Create pull request** → **Merge pull request** → **Confirm merge**.
+
+### Step 5 — Tag the release and update `develop`
+
+```bash
+git checkout main
+git pull
+git tag -a v3.0.0 -m "Week 3 release"
+git push origin v3.0.0
+
+git checkout develop
+git merge --no-ff main -m "Merge release v3.0.0 back into develop"
+git push
+```
+
+The back-merge brings the version change from the release branch into `develop`, so both
+long-lived branches agree. GitHub shows the tag under **Releases/Tags**.
+
+### Hotfixes later
+
+If a bug is found in `v3.0.0`:
+
+```bash
+git checkout -b hotfix/v3.0.1 main
+git commit -am "Fix ..."
+```
+
+Open a PR from `hotfix/v3.0.1` into `main`, tag `v3.0.1`, then merge the hotfix into
+`develop` too.
+
 ---
 
 ## Week 2 workflow
