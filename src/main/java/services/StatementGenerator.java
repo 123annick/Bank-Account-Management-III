@@ -1,9 +1,12 @@
 package services;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.function.Predicate;
 import models.Account;
 import models.Transaction;
 import utils.FormatUtils;
-import utils.TransactionSorter;
+import utils.FunctionalUtils;
 
 public class StatementGenerator {
   private static final String SEPARATOR = "─".repeat(72);
@@ -20,55 +23,57 @@ public class StatementGenerator {
   }
 
   /**
-   * Builds a statement with the account summary, transactions (newest first) and totals.
+   * Builds a full statement with every transaction, newest first.
    *
    * @param account the account to describe
    * @return the statement text, ready to print
    */
   public String generateStatement(Account account) {
-    Transaction[] newestFirst = TransactionSorter.sortNewestFirst(
-        transactionHistory.getTransactionsFor(account.getAccountNumber()));
+    return generateStatement(account, transaction -> true, FunctionalUtils.BY_DATE_NEWEST_FIRST);
+  }
+
+  /**
+   * Builds a statement with only the transactions that pass a rule, in the given order.
+   *
+   * @param account the account to describe
+   * @param rule which transactions to show
+   * @param order how to sort the shown transactions
+   * @return the statement text, ready to print
+   */
+  public String generateStatement(Account account, Predicate<Transaction> rule,
+      Comparator<Transaction> order) {
+    List<Transaction> shown = FunctionalUtils.filterAndSort(
+        transactionHistory.getTransactionsFor(account.getAccountNumber()), rule, order);
     StringBuilder statement = new StringBuilder();
     appendHeader(statement, account);
-    if (newestFirst.length == 0) {
+    if (shown.isEmpty()) {
       statement.append("No transactions recorded for this account.\n");
       return statement.toString();
     }
-    appendTransactions(statement, newestFirst);
-    appendSummary(statement, newestFirst);
+    shown.forEach(transaction -> statement.append(formatRow(transaction)));
+    statement.append(SEPARATOR).append("\n");
+    appendSummary(statement, shown);
     return statement.toString();
   }
 
   /**
-   * Adds up all money that came into the account.
+   * Adds up all money that came into the account, using reduce.
    *
    * @param transactions the transactions to add up
    * @return the total of deposits and transfers in
    */
-  public double calculateTotalDeposits(Transaction[] transactions) {
-    double total = 0;
-    for (Transaction transaction : transactions) {
-      if (transaction.getType().isCredit()) {
-        total += transaction.getAmount();
-      }
-    }
-    return total;
+  public double calculateTotalDeposits(List<Transaction> transactions) {
+    return FunctionalUtils.sumAmounts(transactions, FunctionalUtils.IS_CREDIT);
   }
 
   /**
-   * Adds up all money that left the account.
+   * Adds up all money that left the account, using reduce.
    *
    * @param transactions the transactions to add up
    * @return the total of withdrawals and transfers out
    */
-  public double calculateTotalWithdrawals(Transaction[] transactions) {
-    double total = 0;
-    for (Transaction transaction : transactions) {
-      if (!transaction.getType().isCredit()) {
-        total += transaction.getAmount();
-      }
-    }
-    return total;
+  public double calculateTotalWithdrawals(List<Transaction> transactions) {
+    return FunctionalUtils.sumAmounts(transactions, FunctionalUtils.IS_DEBIT);
   }
 
   private void appendHeader(StringBuilder statement, Account account) {
@@ -79,22 +84,19 @@ public class StatementGenerator {
     statement.append("Transactions:\n").append(SEPARATOR).append("\n");
   }
 
-  private void appendTransactions(StringBuilder statement, Transaction[] transactions) {
-    for (Transaction transaction : transactions) {
-      statement.append(String.format("%-7s | %-19s | %-12s | %-12s | %s%n",
-          transaction.getTransactionId(),
-          FormatUtils.dateTime(transaction.getTimestamp()),
-          transaction.getType(),
-          FormatUtils.signedCurrency(transaction.getSignedAmount()),
-          FormatUtils.currency(transaction.getBalanceAfter())));
-    }
-    statement.append(SEPARATOR).append("\n");
+  private String formatRow(Transaction transaction) {
+    return String.format("%-7s | %-19s | %-12s | %-12s | %s%n",
+        transaction.getTransactionId(),
+        FormatUtils.dateTime(transaction.getTimestamp()),
+        transaction.getType(),
+        FormatUtils.signedCurrency(transaction.getSignedAmount()),
+        FormatUtils.currency(transaction.getBalanceAfter()));
   }
 
-  private void appendSummary(StringBuilder statement, Transaction[] transactions) {
+  private void appendSummary(StringBuilder statement, List<Transaction> transactions) {
     double deposits = calculateTotalDeposits(transactions);
     double withdrawals = calculateTotalWithdrawals(transactions);
-    statement.append("Total Transactions: ").append(transactions.length).append("\n");
+    statement.append("Total Transactions: ").append(transactions.size()).append("\n");
     statement.append("Total Deposits: ").append(FormatUtils.currency(deposits)).append("\n");
     statement.append("Total Withdrawals: ")
         .append(FormatUtils.currency(withdrawals)).append("\n");
