@@ -74,7 +74,7 @@ public class RecordMapper {
    */
   public Optional<Account> toAccount(String line) {
     String[] fields = SPLITTER.split(line, -1);
-    if (fields.length != ACCOUNT_FIELDS || !ValidationUtils.IS_ACCOUNT_NUMBER.test(fields[0])) {
+    if (!hasValidAccountFields(fields)) {
       return Optional.empty();
     }
     try {
@@ -92,26 +92,58 @@ public class RecordMapper {
    */
   public Optional<Transaction> toTransaction(String line) {
     String[] fields = SPLITTER.split(line, -1);
-    if (fields.length != TRANSACTION_FIELDS) {
+    if (fields.length != TRANSACTION_FIELDS || !ValidationUtils.IS_TRANSACTION_ID.test(fields[0])
+        || !ValidationUtils.IS_ACCOUNT_NUMBER.test(fields[1])) {
       return Optional.empty();
     }
     try {
       return Optional.of(new Transaction(fields[0], fields[1], TransactionType.valueOf(fields[2]),
-          Double.parseDouble(fields[3]), Double.parseDouble(fields[4]),
+          positiveNumber(fields[3]), finiteNumber(fields[4]),
           LocalDateTime.parse(fields[5], TIMESTAMP_FORMAT)));
     } catch (IllegalArgumentException | DateTimeParseException e) {
       return Optional.empty();
     }
   }
 
+  private boolean hasValidAccountFields(String[] fields) {
+    return fields.length == ACCOUNT_FIELDS
+        && ValidationUtils.IS_ACCOUNT_NUMBER.test(fields[0])
+        && ValidationUtils.IS_STATUS.test(fields[2])
+        && ValidationUtils.IS_CUSTOMER_ID.test(fields[4])
+        && ValidationUtils.IS_NAME.test(fields[6])
+        && ValidationUtils.IS_EMAIL.test(fields[8])
+        && ValidationUtils.IS_PHONE.test(fields[9])
+        && ValidationUtils.IS_ADDRESS.test(fields[10]);
+  }
+
   private Account buildAccount(String[] fields) {
-    CustomerDetails details = new CustomerDetails(fields[6], Integer.parseInt(fields[7]),
-        fields[8], fields[9], fields[10]);
+    int age = Integer.parseInt(fields[7]);
+    if (!ValidationUtils.isValidAge(age)) {
+      throw new IllegalArgumentException(ValidationUtils.AGE_RULE);
+    }
+    CustomerDetails details = new CustomerDetails(fields[6], age, fields[8], fields[9],
+        fields[10]);
     Account account = accountFactory.restoreAccount(fields[0], fields[4], details,
         CustomerType.valueOf(fields[5]), AccountType.valueOf(fields[1]),
-        Double.parseDouble(fields[3]));
+        finiteNumber(fields[3]));
     account.setStatus(fields[2]);
     return account;
+  }
+
+  private double finiteNumber(String text) {
+    double number = Double.parseDouble(text);
+    if (!Double.isFinite(number)) {
+      throw new IllegalArgumentException("Not a real number: " + text);
+    }
+    return number;
+  }
+
+  private double positiveNumber(String text) {
+    double number = finiteNumber(text);
+    if (number <= 0) {
+      throw new IllegalArgumentException("Not a positive number: " + text);
+    }
+    return number;
   }
 
   private String money(double amount) {
