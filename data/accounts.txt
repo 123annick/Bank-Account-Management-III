@@ -1,0 +1,6 @@
+# accountNumber|accountType|status|balance|customerId|customerType|name|age|email|phone|address
+ACC001|SAVINGS|Active|6250.00|CUS001|REGULAR|John Smith|40|john.smith@bank.com|+1-555-0001|1 Main St
+ACC002|CHECKING|Active|50.00|CUS002|REGULAR|Sarah Johnson|34|sarah.johnson@bank.com|+1-555-0002|2 Main St
+ACC003|SAVINGS|Active|16500.00|CUS003|PREMIUM|Michael Chen|45|michael.chen@bank.com|+1-555-0003|3 Main St
+ACC004|CHECKING|Active|1990.00|CUS004|REGULAR|Emily Brown|29|emily.brown@bank.com|+1-555-0004|4 Main St
+ACC005|SAVINGS|Active|20300.00|CUS005|PREMIUM|David Wilson|52|david.wilson@bank.com|+1-555-0005|5 Main St
