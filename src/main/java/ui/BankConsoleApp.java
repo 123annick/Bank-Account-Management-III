@@ -1,6 +1,7 @@
 package ui;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 
@@ -28,8 +29,18 @@ public class BankConsoleApp {
 
   /**
    * Shows the main menu again and again until the user chooses Exit, then saves the data.
+   * If the keyboard input is closed (for example Ctrl+D), it still saves and exits safely.
    */
   public void run() {
+    try {
+      runMenuLoop();
+    } catch (NoSuchElementException e) {
+      output.println("\nInput was closed. Exiting safely.");
+    }
+    printGoodbye(saveOnExit.getAsBoolean());
+  }
+
+  private void runMenuLoop() {
     int exitOption = menuActions.size() + 1;
     int choice = showMainMenu();
     while (choice != exitOption) {
@@ -37,7 +48,6 @@ public class BankConsoleApp {
       input.pause();
       choice = showMainMenu();
     }
-    printGoodbye(saveOnExit.getAsBoolean());
   }
 
   private int showMainMenu() {
