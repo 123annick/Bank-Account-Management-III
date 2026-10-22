@@ -3,6 +3,7 @@ package ui;
 import models.Account;
 import models.exceptions.InvalidAccountException;
 import services.AccountRepository;
+import utils.ValidationUtils;
 
 public class AccountSelector {
   private static final String CANCEL = "0";
@@ -25,7 +26,8 @@ public class AccountSelector {
   }
 
   /**
-   * Asks for an account number until a real account is found or the user types 0.
+   * Asks for an account number until a real account is found or the user types 0. The
+   * number must match the ACC followed by 3 digits pattern before it is looked up.
    *
    * @param prompt the question to show
    * @return the chosen account, or null when the user cancels
@@ -35,6 +37,10 @@ public class AccountSelector {
       String accountNumber = input.readText(prompt + " (0 to cancel): ");
       if (accountNumber.equals(CANCEL)) {
         return null;
+      }
+      if (!ValidationUtils.IS_ACCOUNT_NUMBER.test(accountNumber.toUpperCase())) {
+        output.printError(ValidationUtils.ACCOUNT_NUMBER_RULE);
+        continue;
       }
       try {
         return accounts.findAccount(accountNumber);
