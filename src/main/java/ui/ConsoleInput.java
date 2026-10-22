@@ -3,6 +3,7 @@ package ui;
 import java.util.InputMismatchException;
 import java.util.Scanner;
 import java.util.function.Predicate;
+import utils.ValidationUtils;
 
 public class ConsoleInput {
   private final Scanner scanner;
@@ -77,34 +78,32 @@ public class ConsoleInput {
   }
 
   /**
-   * Asks until the user types a number. Dollar signs and commas are ignored.
+   * Asks until the user types money in a valid format: digits, optional thousands commas,
+   * optional $ sign and at most 2 decimals. Letters, scientific notation such as 1e3 and
+   * extra decimals are refused.
    *
    * @param prompt the question to show
-   * @return the number typed, which may still be zero or negative
+   * @return the amount typed, which may still be zero or negative
    */
-  public double readDouble(String prompt) {
-    while (true) {
-      try {
-        return parseDouble(readText(prompt));
-      } catch (InputMismatchException e) {
-        output.printError(e.getMessage());
-      }
-    }
+  public double readAmount(String prompt) {
+    String text = readValidated(prompt, ValidationUtils.IS_AMOUNT_TEXT,
+        ValidationUtils.AMOUNT_FORMAT_RULE);
+    return Double.parseDouble(text.replace("$", "").replace(",", ""));
   }
 
   /**
-   * Asks a yes or no question until the user types Y or N.
+   * Asks a yes or no question until the user types Y, YES, N or NO in any letter case.
    *
    * @param prompt the question to show
    * @return true for yes, false for no
    */
   public boolean confirm(String prompt) {
     while (true) {
-      String answer = readText(prompt);
-      if (answer.equalsIgnoreCase("Y")) {
+      String answer = readText(prompt).toUpperCase();
+      if (answer.equals("Y") || answer.equals("YES")) {
         return true;
       }
-      if (answer.equalsIgnoreCase("N")) {
+      if (answer.equals("N") || answer.equals("NO")) {
         return false;
       }
       output.printError("Please type Y or N.");
@@ -124,14 +123,6 @@ public class ConsoleInput {
       return Integer.parseInt(text);
     } catch (NumberFormatException e) {
       throw new InputMismatchException("Invalid input. Please enter a whole number.");
-    }
-  }
-
-  private double parseDouble(String text) {
-    try {
-      return Double.parseDouble(text.replace("$", "").replace(",", ""));
-    } catch (NumberFormatException e) {
-      throw new InputMismatchException("Invalid input. Please enter a number.");
     }
   }
 }
