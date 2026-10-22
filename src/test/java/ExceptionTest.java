@@ -3,6 +3,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.util.InputMismatchException;
+import java.util.NoSuchElementException;
 import models.AccountType;
 import models.CustomerDetails;
 import models.CustomerType;
@@ -108,5 +111,15 @@ class ExceptionTest {
         () -> accountFactory.createAccount(details, CustomerType.REGULAR, AccountType.CHECKING,
             100));
     assertEquals(ValidationUtils.EMAIL_RULE, exception.getMessage());
+  }
+
+  @Test
+  void javaExceptionTypesMatchHowTheCodeHandlesThem() {
+    assertTrue(RuntimeException.class.isAssignableFrom(InputMismatchException.class));
+    assertTrue(RuntimeException.class.isAssignableFrom(NumberFormatException.class));
+    assertTrue(RuntimeException.class.isAssignableFrom(NoSuchElementException.class));
+    assertFalse(RuntimeException.class.isAssignableFrom(IOException.class));
+    assertFalse(RuntimeException.class.isAssignableFrom(InterruptedException.class));
+    assertFalse(Exception.class.isAssignableFrom(Error.class));
   }
 }
