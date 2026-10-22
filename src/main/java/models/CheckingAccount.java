@@ -43,7 +43,7 @@ public class CheckingAccount extends Account {
    * Takes the monthly fee from the balance.
    */
   public void applyMonthlyFee() {
-    chargeFee(monthlyFee);
+    updateBalance(-monthlyFee);
   }
 
   /**

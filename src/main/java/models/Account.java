@@ -43,7 +43,7 @@ public abstract class Account implements Transactable {
    *
    * @return the balance
    */
-  public double getBalance() {
+  public synchronized double getBalance() {
     return balance;
   }
 
@@ -72,13 +72,14 @@ public abstract class Account implements Transactable {
    * @throws InvalidAmountException when the amount is zero or negative
    */
   @Override
-  public void deposit(double amount) throws InvalidAmountException {
+  public synchronized void deposit(double amount) throws InvalidAmountException {
     ValidationUtils.validateAmount(amount);
-    balance = roundToCents(balance + amount);
+    updateBalance(amount);
   }
 
   /**
    * Takes money from the balance after checking the rules of this account type.
+   * The check and the update happen as one step, so two threads cannot both pass the check.
    *
    * @param amount the amount to take, must be greater than zero
    * @throws InvalidAmountException when the amount is zero or negative
@@ -86,10 +87,10 @@ public abstract class Account implements Transactable {
    * @throws OverdraftExceededException when the overdraft limit would be passed
    */
   @Override
-  public void withdraw(double amount)
+  public synchronized void withdraw(double amount)
       throws InvalidAmountException, InsufficientFundsException, OverdraftExceededException {
     checkWithdrawal(amount);
-    balance = roundToCents(balance - amount);
+    updateBalance(-amount);
   }
 
   /**
@@ -100,7 +101,7 @@ public abstract class Account implements Transactable {
    * @throws InsufficientFundsException when a minimum balance would be broken
    * @throws OverdraftExceededException when the overdraft limit would be passed
    */
-  public void checkWithdrawal(double amount)
+  public synchronized void checkWithdrawal(double amount)
       throws InvalidAmountException, InsufficientFundsException, OverdraftExceededException {
     ValidationUtils.validateAmount(amount);
     validateWithdrawalRules(amount);
@@ -123,8 +124,8 @@ public abstract class Account implements Transactable {
   protected abstract void validateWithdrawalRules(double amount)
       throws InsufficientFundsException, OverdraftExceededException;
 
-  protected void chargeFee(double fee) {
-    balance = roundToCents(balance - fee);
+  protected synchronized void updateBalance(double change) {
+    balance = roundToCents(balance + change);
   }
 
   private static double roundToCents(double amount) {

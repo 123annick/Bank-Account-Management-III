@@ -19,27 +19,29 @@ public class TransactionManager implements TransactionHistory {
   private final IdGenerator transactionIds = new IdGenerator("TXN");
 
   /**
-   * Deposits money into an account and records the transaction.
+   * Deposits money into an account and records the transaction. Only one thread at a time
+   * can run this, so the balance and the record always agree.
    *
    * @param account the account receiving the money
    * @param amount the amount to deposit
    * @return the recorded transaction
    * @throws BankException when the amount is invalid
    */
-  public Transaction deposit(Account account, double amount) throws BankException {
+  public synchronized Transaction deposit(Account account, double amount) throws BankException {
     account.deposit(amount);
     return applyTransaction(account, TransactionType.DEPOSIT, amount);
   }
 
   /**
-   * Withdraws money from an account and records the transaction.
+   * Withdraws money from an account and records the transaction. Only one thread at a time
+   * can run this.
    *
    * @param account the account giving the money
    * @param amount the amount to withdraw
    * @return the recorded transaction
    * @throws BankException when the amount is invalid or a balance rule is broken
    */
-  public Transaction withdraw(Account account, double amount) throws BankException {
+  public synchronized Transaction withdraw(Account account, double amount) throws BankException {
     account.withdraw(amount);
     return applyTransaction(account, TransactionType.WITHDRAWAL, amount);
   }
@@ -52,7 +54,7 @@ public class TransactionManager implements TransactionHistory {
    * @param amount the amount to move
    * @throws BankException when the transfer breaks any rule; no balance changes in that case
    */
-  public void transfer(Account source, Account target, double amount)
+  public synchronized void transfer(Account source, Account target, double amount)
       throws BankException {
     validateTransfer(source, target, amount);
     source.withdraw(amount);
@@ -84,7 +86,7 @@ public class TransactionManager implements TransactionHistory {
    * @return a new list with only that account's transactions
    */
   @Override
-  public List<Transaction> getTransactionsFor(String accountNumber) {
+  public synchronized List<Transaction> getTransactionsFor(String accountNumber) {
     return transactions.stream()
         .filter(FunctionalUtils.belongsTo(accountNumber))
         .collect(Collectors.toList());
@@ -95,7 +97,7 @@ public class TransactionManager implements TransactionHistory {
    *
    * @return a new list with all transactions
    */
-  public List<Transaction> getAllTransactions() {
+  public synchronized List<Transaction> getAllTransactions() {
     return new ArrayList<>(transactions);
   }
 
@@ -104,7 +106,7 @@ public class TransactionManager implements TransactionHistory {
    *
    * @return the number of transactions
    */
-  public int getTransactionCount() {
+  public synchronized int getTransactionCount() {
     return transactions.size();
   }
 
@@ -123,7 +125,7 @@ public class TransactionManager implements TransactionHistory {
    *
    * @param loaded the transactions to keep
    */
-  public void replaceAll(Collection<Transaction> loaded) {
+  public synchronized void replaceAll(Collection<Transaction> loaded) {
     transactions.clear();
     transactions.addAll(loaded);
     loaded.forEach(transaction -> transactionIds.skipPast(transaction.getTransactionId()));
