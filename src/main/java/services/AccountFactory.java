@@ -19,7 +19,7 @@ public class AccountFactory {
   private final IdGenerator customerIds = new IdGenerator("CUS");
 
   /**
-   * Checks the opening rules, then creates the customer and the account with
+   * Checks the details and opening rules, then creates the customer and the account with
    * new ids.
    *
    * @param details the customer's personal details
@@ -27,10 +27,11 @@ public class AccountFactory {
    * @param accountType savings or checking
    * @param initialDeposit the opening deposit
    * @return the new account
-   * @throws BankException when the deposit breaks an opening rule
+   * @throws BankException when a detail has the wrong format or the deposit breaks a rule
    */
   public Account createAccount(CustomerDetails details, CustomerType customerType,
       AccountType accountType, double initialDeposit) throws BankException {
+    validateDetails(details);
     validateInitialDeposit(customerType, accountType, initialDeposit);
     Customer customer = createCustomer(customerIds.next(), details, customerType);
     return buildAccount(accountIds.next(), customer, accountType, initialDeposit);
@@ -66,6 +67,17 @@ public class AccountFactory {
       accountIds.skipPast(account.getAccountNumber());
       customerIds.skipPast(account.getCustomer().getCustomerId());
     });
+  }
+
+  private void validateDetails(CustomerDetails details) throws BankException {
+    ValidationUtils.requireValid(details.name(), ValidationUtils.IS_NAME,
+        ValidationUtils.NAME_RULE);
+    ValidationUtils.requireValid(details.email(), ValidationUtils.IS_EMAIL,
+        ValidationUtils.EMAIL_RULE);
+    ValidationUtils.requireValid(details.phone(), ValidationUtils.IS_PHONE,
+        ValidationUtils.PHONE_RULE);
+    ValidationUtils.requireValid(details.address(), ValidationUtils.IS_ADDRESS,
+        ValidationUtils.ADDRESS_RULE);
   }
 
   private void validateInitialDeposit(CustomerType customerType, AccountType accountType,

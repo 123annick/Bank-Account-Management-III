@@ -2,6 +2,7 @@ package ui;
 
 import java.util.InputMismatchException;
 import java.util.Scanner;
+import java.util.function.Predicate;
 
 public class ConsoleInput {
   private final Scanner scanner;
@@ -33,6 +34,24 @@ public class ConsoleInput {
       }
       output.printError("This field cannot be empty.");
     }
+  }
+
+  /**
+   * Asks until the typed text passes a rule, such as a regex check, showing the error
+   * message after each wrong answer.
+   *
+   * @param prompt the question to show
+   * @param rule the rule the answer must pass
+   * @param errorMessage what to show when the answer breaks the rule
+   * @return the accepted text
+   */
+  public String readValidated(String prompt, Predicate<String> rule, String errorMessage) {
+    String text = readText(prompt);
+    while (!rule.test(text)) {
+      output.printError(errorMessage);
+      text = readText(prompt);
+    }
+    return text;
   }
 
   /**
