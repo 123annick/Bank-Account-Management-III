@@ -11,6 +11,7 @@ import models.Transaction;
 import models.TransactionType;
 import models.exceptions.BankException;
 import models.exceptions.InvalidAccountException;
+import utils.FunctionalUtils;
 import utils.IdGenerator;
 
 public class TransactionManager implements TransactionHistory {
@@ -85,7 +86,7 @@ public class TransactionManager implements TransactionHistory {
   @Override
   public List<Transaction> getTransactionsFor(String accountNumber) {
     return transactions.stream()
-        .filter(transaction -> transaction.getAccountNumber().equalsIgnoreCase(accountNumber))
+        .filter(FunctionalUtils.belongsTo(accountNumber))
         .collect(Collectors.toList());
   }
 
