@@ -1,7 +1,7 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.util.List;
 import models.Account;
 import models.AccountType;
 import models.CustomerType;
@@ -47,20 +47,35 @@ class AccountManagerTest {
   }
 
   @Test
-  void getAllAccountsKeepsInsertionOrder() throws Exception {
+  void getAllAccountsSortsByAccountNumber() throws Exception {
     Account first = createRegularChecking("Ann", 100);
     Account second = createRegularChecking("Ben", 200);
-    accountManager.addAccount(first);
+    Account third = createRegularChecking("Cara", 300);
+    accountManager.addAccount(third);
     accountManager.addAccount(second);
-    Account[] all = accountManager.getAllAccounts();
-    assertEquals(2, all.length);
-    assertSame(first, all[0]);
-    assertSame(second, all[1]);
+    accountManager.addAccount(first);
+    List<Account> all = accountManager.getAllAccounts();
+    assertEquals(3, all.size());
+    assertSame(first, all.get(0));
+    assertSame(second, all.get(1));
+    assertSame(third, all.get(2));
   }
 
   @Test
-  void newManagerIsNotFull() {
-    assertFalse(accountManager.isFull());
+  void findAccountsFiltersWithPredicate() throws Exception {
+    accountManager.addAccount(createRegularChecking("Ann", 100));
+    accountManager.addAccount(createRegularChecking("Ben", 5000));
+    List<Account> rich = accountManager.findAccounts(account -> account.getBalance() > 1000);
+    assertEquals(1, rich.size());
+    assertEquals("Ben", rich.get(0).getCustomer().getName());
+  }
+
+  @Test
+  void replaceAllSwapsTheStoredAccounts() throws Exception {
+    accountManager.addAccount(createRegularChecking("Ann", 100));
+    accountManager.replaceAll(List.of(TestData.savingsAccount(900)));
+    assertEquals(1, accountManager.getAccountCount());
+    assertEquals(900, accountManager.findAccount("ACC001").getBalance());
   }
 
   private Account createRegularChecking(String name, double deposit) throws Exception {

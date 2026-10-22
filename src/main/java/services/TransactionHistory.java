@@ -1,5 +1,6 @@
 package services;
 
+import java.util.List;
 import models.Transaction;
 
 public interface TransactionHistory {
@@ -8,7 +9,7 @@ public interface TransactionHistory {
    * Returns the transactions of one account in the order they were recorded.
    *
    * @param accountNumber the account to look for
-   * @return a new array with only that account's transactions
+   * @return a new list with only that account's transactions
    */
-  Transaction[] getTransactionsFor(String accountNumber);
+  List<Transaction> getTransactionsFor(String accountNumber);
 }

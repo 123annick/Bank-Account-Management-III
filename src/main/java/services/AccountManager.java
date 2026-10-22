@@ -1,33 +1,40 @@
 package services;
 
-import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import models.Account;
 import models.exceptions.InvalidAccountException;
-import models.exceptions.StorageFullException;
 
 public class AccountManager implements AccountRepository {
-  private static final int MAX_ACCOUNTS = 50;
+  private static final Comparator<Account> BY_ACCOUNT_NUMBER =
+      Comparator.comparing(Account::getAccountNumber);
 
-  private final Account[] accounts = new Account[MAX_ACCOUNTS];
-  private int accountCount;
+  private final Map<String, Account> accounts = new HashMap<>();
 
   /**
-   * Stores a new account at the next free position of the array.
+   * Stores a new account in the map, using its account number as the key.
    *
    * @param account the account to store
-   * @throws StorageFullException when all positions are used
+   * @throws InvalidAccountException when an account with the same number already exists
    */
   @Override
-  public void addAccount(Account account) throws StorageFullException {
-    if (isFull()) {
-      throw new StorageFullException("The bank is full. Cannot add more accounts.");
+  public void addAccount(Account account) throws InvalidAccountException {
+    String key = keyOf(account.getAccountNumber());
+    if (accounts.containsKey(key)) {
+      throw new InvalidAccountException("Account " + key + " already exists.");
     }
-    accounts[accountCount] = account;
-    accountCount++;
+    accounts.put(key, account);
   }
 
   /**
-   * Finds an account with a linear search, checking each stored account in turn.
+   * Finds an account with a single map lookup, which takes the same time however many
+   * accounts there are.
    *
    * @param accountNumber the number to look for
    * @return the matching account
@@ -35,23 +42,36 @@ public class AccountManager implements AccountRepository {
    */
   @Override
   public Account findAccount(String accountNumber) throws InvalidAccountException {
-    for (int i = 0; i < accountCount; i++) {
-      if (accounts[i].getAccountNumber().equalsIgnoreCase(accountNumber.trim())) {
-        return accounts[i];
-      }
+    Account account = accounts.get(keyOf(accountNumber));
+    if (account == null) {
+      throw new InvalidAccountException(
+          "Account not found. Please check the account number and try again.");
     }
-    throw new InvalidAccountException(
-        "Account not found. Please check the account number and try again.");
+    return account;
   }
 
   /**
-   * Returns a copy of the used part of the array.
+   * Returns all stored accounts sorted by account number.
    *
-   * @return every stored account
+   * @return a new list containing every account
    */
   @Override
-  public Account[] getAllAccounts() {
-    return Arrays.copyOf(accounts, accountCount);
+  public List<Account> getAllAccounts() {
+    return findAccounts(account -> true);
+  }
+
+  /**
+   * Returns the accounts that pass a rule, sorted by account number.
+   *
+   * @param rule which accounts to keep
+   * @return a new list with the matching accounts
+   */
+  @Override
+  public List<Account> findAccounts(Predicate<Account> rule) {
+    return accounts.values().stream()
+        .filter(rule)
+        .sorted(BY_ACCOUNT_NUMBER)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -61,30 +81,31 @@ public class AccountManager implements AccountRepository {
    */
   @Override
   public int getAccountCount() {
-    return accountCount;
+    return accounts.size();
   }
 
   /**
-   * Tells whether every position of the array is used.
-   *
-   * @return true when storage is full
-   */
-  @Override
-  public boolean isFull() {
-    return accountCount >= MAX_ACCOUNTS;
-  }
-
-  /**
-   * Adds up the balances of all accounts.
+   * Adds up the balances of all accounts with a stream.
    *
    * @return the total bank balance
    */
   @Override
   public double getTotalBalance() {
-    double total = 0;
-    for (int i = 0; i < accountCount; i++) {
-      total += accounts[i].getBalance();
-    }
-    return total;
+    return accounts.values().stream().mapToDouble(Account::getBalance).sum();
+  }
+
+  /**
+   * Removes every stored account and stores the given ones instead.
+   *
+   * @param newAccounts the accounts to keep
+   */
+  @Override
+  public void replaceAll(Collection<Account> newAccounts) {
+    accounts.clear();
+    newAccounts.forEach(account -> accounts.put(keyOf(account.getAccountNumber()), account));
+  }
+
+  private String keyOf(String accountNumber) {
+    return accountNumber.trim().toUpperCase(Locale.ROOT);
   }
 }
