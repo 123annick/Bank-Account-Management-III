@@ -63,4 +63,54 @@ class RegexValidationTest {
             ValidationUtils.EMAIL_RULE));
     assertEquals(ValidationUtils.EMAIL_RULE, exception.getMessage());
   }
+
+  @Test
+  void namesWithNumbersOrSymbolsAreRejected() {
+    List.of("12345", "John3", "Ann  Lee", "-Ann", "Ann-", "A", "Ann_Lee", "Ann@Lee")
+        .forEach(name -> assertFalse(ValidationUtils.IS_NAME.test(name)));
+  }
+
+  @Test
+  void realNamesAreAccepted() {
+    List.of("Ann", "Ann Uwase", "Mary-Jane", "O'Neil", "Jean Paul Habimana")
+        .forEach(name -> assertTrue(ValidationUtils.IS_NAME.test(name)));
+  }
+
+  @Test
+  void phoneMustHaveSevenToFifteenDigits() {
+    assertTrue(ValidationUtils.IS_PHONE.test("+250 788 123 456"));
+    assertTrue(ValidationUtils.IS_PHONE.test("5550001"));
+    assertFalse(ValidationUtils.IS_PHONE.test("555000"));
+    assertFalse(ValidationUtils.IS_PHONE.test("1234567890123456"));
+    assertFalse(ValidationUtils.IS_PHONE.test("+1--555-0001"));
+  }
+
+  @Test
+  void addressMustContainALetter() {
+    assertTrue(ValidationUtils.IS_ADDRESS.test("12 Main St"));
+    assertFalse(ValidationUtils.IS_ADDRESS.test("12345"));
+    assertFalse(ValidationUtils.IS_ADDRESS.test("1 Main St|ACC999"));
+  }
+
+  @Test
+  void emailWithDoubleDotsIsRejected() {
+    assertFalse(ValidationUtils.IS_EMAIL.test("ann@bank..com"));
+    assertFalse(ValidationUtils.IS_EMAIL.test("ann..lee@bank.com"));
+  }
+
+  @Test
+  void amountTextAllowsOnlyMoneyFormats() {
+    List.of("1500", "1,500", "1,500.50", "$20.5", "0.99", "-200")
+        .forEach(text -> assertTrue(ValidationUtils.IS_AMOUNT_TEXT.test(text)));
+    List.of("1e3", "10.555", "abc", "1,50", "", "NaN", "Infinity", "12.")
+        .forEach(text -> assertFalse(ValidationUtils.IS_AMOUNT_TEXT.test(text)));
+  }
+
+  @Test
+  void customerAndTransactionIdsFollowPatterns() {
+    assertTrue(ValidationUtils.IS_CUSTOMER_ID.test("CUS001"));
+    assertFalse(ValidationUtils.IS_CUSTOMER_ID.test("CUS1"));
+    assertTrue(ValidationUtils.IS_TRANSACTION_ID.test("TXN1000"));
+    assertFalse(ValidationUtils.IS_TRANSACTION_ID.test("TX001"));
+  }
 }

@@ -5,6 +5,7 @@ import models.AccountType;
 import models.CustomerDetails;
 import models.CustomerType;
 import models.exceptions.BankException;
+import models.exceptions.InvalidAmountException;
 import services.AccountFactory;
 import services.AccountRepository;
 import utils.FormatUtils;
@@ -73,7 +74,8 @@ public class AccountMenu implements MenuAction {
   private CustomerDetails readCustomerDetails() {
     String name = input.readValidated("Enter customer name: ", ValidationUtils.IS_NAME,
         ValidationUtils.NAME_RULE);
-    int age = input.readInt("Enter customer age: ", 18, 120);
+    int age = input.readInt("Enter customer age: ", ValidationUtils.MIN_AGE,
+        ValidationUtils.MAX_AGE);
     String email = input.readValidated("Enter customer email: ", ValidationUtils.IS_EMAIL,
         ValidationUtils.EMAIL_RULE);
     output.printSuccess("Email accepted!");
@@ -103,15 +105,18 @@ public class AccountMenu implements MenuAction {
   private void openAccount(CustomerDetails details, CustomerType customerType,
       AccountType accountType) {
     while (true) {
-      double deposit = input.readDouble("\nEnter initial deposit amount: $");
+      double deposit = input.readAmount("\nEnter initial deposit amount: $");
       try {
         Account account =
             accountFactory.createAccount(details, customerType, accountType, deposit);
         accounts.addAccount(account);
         printAccountCreated(account);
         return;
+      } catch (InvalidAmountException e) {
+        output.printError(e.getMessage());
       } catch (BankException e) {
         output.printError(e.getMessage());
+        return;
       }
     }
   }

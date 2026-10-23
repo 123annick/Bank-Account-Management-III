@@ -95,4 +95,30 @@ class FilePersistenceServiceTest {
     assertEquals("ACC008", next.getAccountNumber());
     assertEquals("CUS008", next.getCustomer().getCustomerId());
   }
+
+  @Test
+  void recordsThatBreakValidationRulesAreSkipped() throws Exception {
+    Files.write(tempDir.resolve(FilePersistenceService.ACCOUNTS_FILE), List.of(
+        "ACC001|SAVINGS|Active|900.00|CUS001|REGULAR|John3|30|ann@bank.com|+1-555-0000|1 St",
+        "ACC002|SAVINGS|Active|900.00|CUS002|REGULAR|Ann Uwase|15|ann@bank.com|+1-555-0000|1 St",
+        "ACC003|SAVINGS|Active|900.00|CUS003|REGULAR|Ann Uwase|30|ann@bank|+1-555-0000|1 St",
+        "ACC004|SAVINGS|Active|NaN|CUS004|REGULAR|Ann Uwase|30|ann@bank.com|+1-555-0000|1 St",
+        "ACC005|SAVINGS|Active|900.00|CUS005|REGULAR|Ann Uwase|30|ann@bank.com|+1-555-0000|1 St"));
+    LoadResult<Account> result = persistence.loadAccounts();
+    assertEquals(1, result.items().size());
+    assertEquals("ACC005", result.items().get(0).getAccountNumber());
+    assertEquals(4, result.skippedLines());
+  }
+
+  @Test
+  void transactionsWithBadIdsOrAmountsAreSkipped() throws Exception {
+    Files.write(tempDir.resolve(FilePersistenceService.TRANSACTIONS_FILE), List.of(
+        "TXN001|ACC001|DEPOSIT|100.00|1100.00|2026-10-15T09:00:00",
+        "BAD001|ACC001|DEPOSIT|100.00|1100.00|2026-10-15T09:00:00",
+        "TXN002|ACC001|DEPOSIT|-5.00|1095.00|2026-10-15T09:00:00",
+        "TXN003|ACC001|DEPOSIT|5.00|1105.00|not-a-date"));
+    LoadResult<Transaction> result = persistence.loadTransactions();
+    assertEquals(1, result.items().size());
+    assertEquals(3, result.skippedLines());
+  }
 }
