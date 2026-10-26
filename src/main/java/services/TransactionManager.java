@@ -1,60 +1,62 @@
 package services;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 import models.Account;
 import models.Transaction;
 import models.TransactionType;
 import models.exceptions.BankException;
 import models.exceptions.InvalidAccountException;
-import models.exceptions.StorageFullException;
+import utils.FunctionalUtils;
 import utils.IdGenerator;
 
 public class TransactionManager implements TransactionHistory {
-  private static final int MAX_TRANSACTIONS = 200;
-
-  private final Transaction[] transactions = new Transaction[MAX_TRANSACTIONS];
+  private final List<Transaction> transactions = new ArrayList<>();
   private final IdGenerator transactionIds = new IdGenerator("TXN");
-  private int transactionCount;
 
   /**
-   * Deposits money into an account and records the transaction.
+   * Deposits money into an account and records the transaction. Only one thread at a time
+   * can run this, so the balance and the record always agree.
    *
    * @param account the account receiving the money
    * @param amount the amount to deposit
    * @return the recorded transaction
-   * @throws BankException when the amount is invalid or the log is full
+   * @throws BankException when the amount is invalid
    */
-  public Transaction deposit(Account account, double amount) throws BankException {
-    validateTransaction(1);
+  public synchronized Transaction deposit(Account account, double amount) throws BankException {
     account.deposit(amount);
     return applyTransaction(account, TransactionType.DEPOSIT, amount);
   }
 
   /**
-   * Withdraws money from an account and records the transaction.
+   * Withdraws money from an account and records the transaction. Only one thread at a time
+   * can run this.
    *
    * @param account the account giving the money
    * @param amount the amount to withdraw
    * @return the recorded transaction
-   * @throws BankException when the amount is invalid, a balance rule is broken or the log is full
+   * @throws BankException when the amount is invalid or a balance rule is broken
    */
-  public Transaction withdraw(Account account, double amount) throws BankException {
-    validateTransaction(1);
+  public synchronized Transaction withdraw(Account account, double amount) throws BankException {
     account.withdraw(amount);
     return applyTransaction(account, TransactionType.WITHDRAWAL, amount);
   }
 
   /**
-   * Moves money from one account to another and records both sides.
+   * Moves money from one account to another and records both sides as one step.
    *
    * @param source the account giving the money
    * @param target the account receiving the money
    * @param amount the amount to move
    * @throws BankException when the transfer breaks any rule; no balance changes in that case
    */
-  public void transfer(Account source, Account target, double amount) throws BankException {
+  public synchronized void transfer(Account source, Account target, double amount)
+      throws BankException {
     validateTransfer(source, target, amount);
-    validateTransaction(2);
     source.withdraw(amount);
     target.deposit(amount);
     applyTransaction(source, TransactionType.TRANSFER_OUT, amount);
@@ -81,19 +83,22 @@ public class TransactionManager implements TransactionHistory {
    * Returns the transactions of one account in the order they were recorded.
    *
    * @param accountNumber the account to look for
-   * @return a new array with only that account's transactions
+   * @return a new list with only that account's transactions
    */
   @Override
-  public Transaction[] getTransactionsFor(String accountNumber) {
-    Transaction[] result = new Transaction[countTransactionsFor(accountNumber)];
-    int index = 0;
-    for (int i = 0; i < transactionCount; i++) {
-      if (belongsTo(transactions[i], accountNumber)) {
-        result[index] = transactions[i];
-        index++;
-      }
-    }
-    return result;
+  public synchronized List<Transaction> getTransactionsFor(String accountNumber) {
+    return transactions.stream()
+        .filter(FunctionalUtils.belongsTo(accountNumber))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Returns every recorded transaction in the order they were recorded.
+   *
+   * @return a new list with all transactions
+   */
+  public synchronized List<Transaction> getAllTransactions() {
+    return new ArrayList<>(transactions);
   }
 
   /**
@@ -101,8 +106,8 @@ public class TransactionManager implements TransactionHistory {
    *
    * @return the number of transactions
    */
-  public int getTransactionCount() {
-    return transactionCount;
+  public synchronized int getTransactionCount() {
+    return transactions.size();
   }
 
   /**
@@ -114,31 +119,23 @@ public class TransactionManager implements TransactionHistory {
     return transactionIds.peek();
   }
 
-  private void validateTransaction(int slotsNeeded) throws StorageFullException {
-    if (transactionCount + slotsNeeded > MAX_TRANSACTIONS) {
-      throw new StorageFullException("Transaction log is full. Cannot record more transactions.");
-    }
+  /**
+   * Removes every recorded transaction and keeps the given ones instead, for example after
+   * loading from a file. New transaction ids continue after the highest loaded id.
+   *
+   * @param loaded the transactions to keep
+   */
+  public synchronized void replaceAll(Collection<Transaction> loaded) {
+    transactions.clear();
+    transactions.addAll(loaded);
+    loaded.forEach(transaction -> transactionIds.skipPast(transaction.getTransactionId()));
   }
 
   private Transaction applyTransaction(Account account, TransactionType type, double amount) {
     Transaction transaction = new Transaction(transactionIds.next(),
-        account.getAccountNumber(), type, amount, account.getBalance(), LocalDateTime.now());
-    transactions[transactionCount] = transaction;
-    transactionCount++;
+        account.getAccountNumber(), type, amount, account.getBalance(),
+        LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
+    transactions.add(transaction);
     return transaction;
-  }
-
-  private int countTransactionsFor(String accountNumber) {
-    int count = 0;
-    for (int i = 0; i < transactionCount; i++) {
-      if (belongsTo(transactions[i], accountNumber)) {
-        count++;
-      }
-    }
-    return count;
-  }
-
-  private boolean belongsTo(Transaction transaction, String accountNumber) {
-    return transaction.getAccountNumber().equalsIgnoreCase(accountNumber);
   }
 }

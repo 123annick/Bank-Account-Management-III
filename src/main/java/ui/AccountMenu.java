@@ -4,11 +4,12 @@ import models.Account;
 import models.AccountType;
 import models.CustomerDetails;
 import models.CustomerType;
+import models.exceptions.BankException;
 import models.exceptions.InvalidAmountException;
-import models.exceptions.StorageFullException;
 import services.AccountFactory;
 import services.AccountRepository;
 import utils.FormatUtils;
+import utils.ValidationUtils;
 
 public class AccountMenu implements MenuAction {
   private static final String ROW_FORMAT = "%-8s | %-17s | %-10s | %-12s | %s%n";
@@ -64,10 +65,6 @@ public class AccountMenu implements MenuAction {
 
   private void createAccount() {
     output.printTitle("ACCOUNT CREATION");
-    if (accounts.isFull()) {
-      output.printError("The bank is full. Cannot add more accounts.");
-      return;
-    }
     CustomerDetails details = readCustomerDetails();
     CustomerType customerType = readCustomerType();
     AccountType accountType = readAccountType();
@@ -75,11 +72,18 @@ public class AccountMenu implements MenuAction {
   }
 
   private CustomerDetails readCustomerDetails() {
-    String name = input.readText("Enter customer name: ");
-    int age = input.readInt("Enter customer age: ", 18, 120);
-    String contact = input.readText("Enter customer contact: ");
-    String address = input.readText("Enter customer address: ");
-    return new CustomerDetails(name, age, contact, address);
+    String name = input.readValidated("Enter customer name: ", ValidationUtils.IS_NAME,
+        ValidationUtils.NAME_RULE);
+    int age = input.readInt("Enter customer age: ", ValidationUtils.MIN_AGE,
+        ValidationUtils.MAX_AGE);
+    String email = input.readValidated("Enter customer email: ", ValidationUtils.IS_EMAIL,
+        ValidationUtils.EMAIL_RULE);
+    output.printSuccess("Email accepted!");
+    String phone = input.readValidated("Enter customer phone: ", ValidationUtils.IS_PHONE,
+        ValidationUtils.PHONE_RULE);
+    String address = input.readValidated("Enter customer address: ",
+        ValidationUtils.IS_ADDRESS, ValidationUtils.ADDRESS_RULE);
+    return new CustomerDetails(name, age, email, phone, address);
   }
 
   private CustomerType readCustomerType() {
@@ -101,7 +105,7 @@ public class AccountMenu implements MenuAction {
   private void openAccount(CustomerDetails details, CustomerType customerType,
       AccountType accountType) {
     while (true) {
-      double deposit = input.readDouble("\nEnter initial deposit amount: $");
+      double deposit = input.readAmount("\nEnter initial deposit amount: $");
       try {
         Account account =
             accountFactory.createAccount(details, customerType, accountType, deposit);
@@ -110,7 +114,7 @@ public class AccountMenu implements MenuAction {
         return;
       } catch (InvalidAmountException e) {
         output.printError(e.getMessage());
-      } catch (StorageFullException e) {
+      } catch (BankException e) {
         output.printError(e.getMessage());
         return;
       }
@@ -134,9 +138,7 @@ public class AccountMenu implements MenuAction {
     output.printTitle("ACCOUNT LISTING");
     System.out.printf(ROW_FORMAT, "ACC NO", "CUSTOMER NAME", "TYPE", "BALANCE", "STATUS");
     output.println(TABLE_LINE);
-    for (Account account : accounts.getAllAccounts()) {
-      printAccountRow(account);
-    }
+    accounts.getAllAccounts().forEach(this::printAccountRow);
     output.println("\nTotal Accounts: " + accounts.getAccountCount());
     output.println("Total Bank Balance: " + FormatUtils.currency(accounts.getTotalBalance()));
   }
@@ -146,7 +148,8 @@ public class AccountMenu implements MenuAction {
         account.getAccountType().getDisplayName(), FormatUtils.currency(account.getBalance()),
         account.getStatus());
     output.println("         | Customer ID: " + account.getCustomer().getCustomerId()
-        + " | " + account.getAccountFeatures());
+        + " | " + account.getCustomer().getEmail() + " | " + account.getCustomer().getPhone());
+    output.println("         | " + account.getAccountFeatures());
     output.println(TABLE_LINE);
   }
 }

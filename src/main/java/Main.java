@@ -1,59 +1,54 @@
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.Scanner;
-import models.exceptions.BankException;
 import services.AccountFactory;
 import services.AccountManager;
 import services.AccountRepository;
-import services.SampleDataLoader;
-import services.SelfTestRunner;
+import services.FilePersistenceService;
+import services.RecordMapper;
 import services.StatementGenerator;
 import services.TransactionManager;
+import services.TransactionSimulator;
 import ui.AccountMenu;
 import ui.AccountSelector;
 import ui.BankConsoleApp;
 import ui.ConsoleInput;
 import ui.ConsoleOutput;
+import ui.DataMenu;
 import ui.MenuAction;
+import ui.SimulationMenu;
 import ui.StatementMenu;
-import ui.TestMenu;
 import ui.TransactionMenu;
 
 public class Main {
-  private static final String EMPTY_START_FLAG = "--empty";
+  private static final Path DATA_DIRECTORY = Paths.get("data");
 
   /**
-   * Builds all objects, loads sample data unless --empty is passed, and starts the menu.
+   * Builds all objects, loads the saved data from the data folder, and starts the menu.
    *
-   * @param args use --empty to start without sample accounts
+   * @param args not used
    */
   public static void main(String[] args) {
     AccountRepository accounts = new AccountManager();
     AccountFactory accountFactory = new AccountFactory();
     TransactionManager transactionManager = new TransactionManager();
     ConsoleOutput output = new ConsoleOutput();
-    if (!isEmptyStart(args)) {
-      loadSampleData(accounts, accountFactory, output);
-    }
     ConsoleInput input = new ConsoleInput(new Scanner(System.in), output);
+    FilePersistenceService persistence =
+        new FilePersistenceService(DATA_DIRECTORY, new RecordMapper(accountFactory));
+    DataMenu dataMenu = new DataMenu(input, output, persistence, accounts, transactionManager,
+        accountFactory);
+    dataMenu.loadOnStartup();
     AccountSelector accountSelector = new AccountSelector(input, output, accounts);
-    MenuAction[] menuActions = {
+    List<MenuAction> menuActions = List.of(
         new AccountMenu(input, output, accounts, accountFactory),
         new TransactionMenu(input, output, accountSelector, transactionManager),
-        new StatementMenu(output, accountSelector, new StatementGenerator(transactionManager)),
-        new TestMenu(output, new SelfTestRunner())
-    };
-    new BankConsoleApp(input, output, menuActions).run();
-  }
-
-  private static boolean isEmptyStart(String[] args) {
-    return args.length > 0 && args[0].equals(EMPTY_START_FLAG);
-  }
-
-  private static void loadSampleData(AccountRepository accounts, AccountFactory accountFactory,
-      ConsoleOutput output) {
-    try {
-      SampleDataLoader.load(accounts, accountFactory);
-    } catch (BankException e) {
-      output.printError("Could not load sample data. " + e.getMessage());
-    }
+        new StatementMenu(input, output, accountSelector,
+            new StatementGenerator(transactionManager)),
+        dataMenu,
+        new SimulationMenu(output, accountSelector,
+            new TransactionSimulator(transactionManager, output::println)));
+    new BankConsoleApp(input, output, menuActions, dataMenu::save).run();
   }
 }

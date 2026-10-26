@@ -1,6 +1,7 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import models.Account;
 import models.Transaction;
 import models.TransactionType;
@@ -8,7 +9,6 @@ import models.exceptions.InsufficientFundsException;
 import models.exceptions.InvalidAccountException;
 import models.exceptions.InvalidAmountException;
 import models.exceptions.OverdraftExceededException;
-import models.exceptions.StorageFullException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,10 +68,10 @@ class TransactionManagerTest {
   @Test
   void transferRecordsTransferOutAndTransferIn() throws Exception {
     transactionManager.transfer(savings, checking, 700);
-    Transaction[] sourceHistory = transactionManager.getTransactionsFor("ACC001");
-    Transaction[] targetHistory = transactionManager.getTransactionsFor("ACC002");
-    assertEquals(TransactionType.TRANSFER_OUT, sourceHistory[0].getType());
-    assertEquals(TransactionType.TRANSFER_IN, targetHistory[0].getType());
+    List<Transaction> sourceHistory = transactionManager.getTransactionsFor("ACC001");
+    List<Transaction> targetHistory = transactionManager.getTransactionsFor("ACC002");
+    assertEquals(TransactionType.TRANSFER_OUT, sourceHistory.get(0).getType());
+    assertEquals(TransactionType.TRANSFER_IN, targetHistory.get(0).getType());
     assertEquals(2, transactionManager.getTransactionCount());
   }
 
@@ -105,27 +105,25 @@ class TransactionManagerTest {
     transactionManager.deposit(savings, 100);
     transactionManager.deposit(checking, 200);
     transactionManager.deposit(savings, 300);
-    Transaction[] history = transactionManager.getTransactionsFor("acc001");
-    assertEquals(2, history.length);
-    assertEquals(300, history[1].getAmount());
+    List<Transaction> history = transactionManager.getTransactionsFor("acc001");
+    assertEquals(2, history.size());
+    assertEquals(300, history.get(1).getAmount());
   }
 
   @Test
-  void fullTransactionLogThrowsStorageFullException() throws Exception {
-    for (int i = 0; i < 200; i++) {
+  void arrayListGrowsBeyondOldArrayLimit() throws Exception {
+    for (int i = 0; i < 250; i++) {
       transactionManager.deposit(checking, 1);
     }
-    assertThrows(StorageFullException.class, () -> transactionManager.deposit(checking, 1));
-    assertEquals(700, checking.getBalance());
+    assertEquals(250, transactionManager.getTransactionCount());
+    assertEquals(750, checking.getBalance());
   }
 
   @Test
-  void transferNeedsRoomForTwoRecords() throws Exception {
-    for (int i = 0; i < 199; i++) {
-      transactionManager.deposit(checking, 1);
-    }
-    assertThrows(StorageFullException.class,
-        () -> transactionManager.transfer(savings, checking, 100));
-    assertEquals(2000, savings.getBalance());
+  void replaceAllContinuesIdsAfterLoadedTransactions() throws Exception {
+    transactionManager.replaceAll(List.of(
+        TestData.depositAt("TXN020", java.time.LocalDateTime.of(2026, 10, 1, 9, 0))));
+    assertEquals("TXN021", transactionManager.deposit(savings, 10).getTransactionId());
+    assertEquals(2, transactionManager.getTransactionCount());
   }
 }

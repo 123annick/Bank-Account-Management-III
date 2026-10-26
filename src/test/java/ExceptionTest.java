@@ -3,14 +3,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.util.InputMismatchException;
+import java.util.NoSuchElementException;
 import models.AccountType;
+import models.CustomerDetails;
 import models.CustomerType;
 import models.exceptions.BankException;
 import models.exceptions.InsufficientFundsException;
 import models.exceptions.InvalidAccountException;
 import models.exceptions.InvalidAmountException;
 import models.exceptions.OverdraftExceededException;
-import models.exceptions.StorageFullException;
+import models.exceptions.InvalidInputException;
+import models.exceptions.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,7 +40,8 @@ class ExceptionTest {
     assertTrue(BankException.class.isAssignableFrom(InsufficientFundsException.class));
     assertTrue(BankException.class.isAssignableFrom(OverdraftExceededException.class));
     assertTrue(BankException.class.isAssignableFrom(InvalidAccountException.class));
-    assertTrue(BankException.class.isAssignableFrom(StorageFullException.class));
+    assertTrue(BankException.class.isAssignableFrom(InvalidInputException.class));
+    assertTrue(BankException.class.isAssignableFrom(PersistenceException.class));
   }
 
   @Test
@@ -91,11 +97,29 @@ class ExceptionTest {
   }
 
   @Test
-  void fullAccountStorageThrowsStorageFullException() throws Exception {
-    for (int i = 0; i < 50; i++) {
-      accountManager.addAccount(TestData.checkingAccount(100));
-    }
-    assertThrows(StorageFullException.class,
+  void duplicateAccountNumberThrowsInvalidAccountException() throws Exception {
+    accountManager.addAccount(TestData.checkingAccount(100));
+    assertThrows(InvalidAccountException.class,
         () -> accountManager.addAccount(TestData.checkingAccount(100)));
+  }
+
+  @Test
+  void invalidEmailWhenCreatingAccountThrowsInvalidInputException() {
+    CustomerDetails details = new CustomerDetails("Ann Uwase", 25, "ann@bank", "+1-555-0000",
+        "1 Test Street");
+    InvalidInputException exception = assertThrows(InvalidInputException.class,
+        () -> accountFactory.createAccount(details, CustomerType.REGULAR, AccountType.CHECKING,
+            100));
+    assertEquals(ValidationUtils.EMAIL_RULE, exception.getMessage());
+  }
+
+  @Test
+  void javaExceptionTypesMatchHowTheCodeHandlesThem() {
+    assertTrue(RuntimeException.class.isAssignableFrom(InputMismatchException.class));
+    assertTrue(RuntimeException.class.isAssignableFrom(NumberFormatException.class));
+    assertTrue(RuntimeException.class.isAssignableFrom(NoSuchElementException.class));
+    assertFalse(RuntimeException.class.isAssignableFrom(IOException.class));
+    assertFalse(RuntimeException.class.isAssignableFrom(InterruptedException.class));
+    assertFalse(Exception.class.isAssignableFrom(Error.class));
   }
 }

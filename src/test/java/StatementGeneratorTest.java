@@ -1,4 +1,5 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import models.Account;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import services.StatementGenerator;
 import services.TransactionManager;
+import utils.FunctionalUtils;
 
 @ExtendWith(ConsoleTestLogger.class)
 class StatementGeneratorTest {
@@ -53,5 +55,16 @@ class StatementGeneratorTest {
         transactionManager.getTransactionsFor("ACC001")));
     assertEquals(250, statementGenerator.calculateTotalDeposits(
         transactionManager.getTransactionsFor("ACC002")));
+  }
+
+  @Test
+  void depositsOnlyViewHidesWithdrawalsAndSortsByAmount() throws Exception {
+    transactionManager.deposit(savings, 100);
+    transactionManager.withdraw(savings, 50);
+    transactionManager.deposit(savings, 300);
+    String statement = statementGenerator.generateStatement(savings, FunctionalUtils.IS_CREDIT,
+        FunctionalUtils.BY_AMOUNT_LARGEST_FIRST);
+    assertFalse(statement.contains("WITHDRAWAL"));
+    assertTrue(statement.indexOf("TXN003") < statement.indexOf("TXN001"));
   }
 }

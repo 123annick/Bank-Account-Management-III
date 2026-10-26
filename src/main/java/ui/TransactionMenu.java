@@ -123,7 +123,7 @@ public class TransactionMenu implements MenuAction {
 
   private double readValidAmount(String prompt) {
     while (true) {
-      double amount = input.readDouble(prompt);
+      double amount = input.readAmount(prompt);
       try {
         ValidationUtils.validateAmount(amount);
         return amount;
